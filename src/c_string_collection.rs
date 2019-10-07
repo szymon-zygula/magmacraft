@@ -35,7 +35,7 @@ macro_rules! create_c_string_collection_type {
 
             pub fn push(&mut self, string: &str) {
                 self.add_string(string);
-                self.add_pointer_to_last_c_string();
+                self.add_next_c_string_pointer();
             }
 
             fn add_string(&mut self, string: &str) {
@@ -45,8 +45,17 @@ macro_rules! create_c_string_collection_type {
                 self.strings.push(c_string);
             }
 
-            fn add_pointer_to_last_c_string(&mut self) {
-                let pointer = self.strings.last().unwrap().as_ptr() as *const std::os::raw::c_char;
+            fn reconstruct_pointers(&mut self) {
+                let len = self.strings.len();
+                self.pointers = Vec::with_capacity(len);
+                for _ in 0..len {
+                    self.add_next_c_string_pointer();
+                }
+            }
+
+            fn add_next_c_string_pointer(&mut self) {
+                let index = self.pointers.len();
+                let pointer = self.strings[index].as_ptr() as *const std::os::raw::c_char;
                 self.pointers.push(pointer);
             }
 
@@ -60,6 +69,19 @@ macro_rules! create_c_string_collection_type {
 
             pub fn len(&self) -> usize {
                 self.strings.len()
+            }
+        }
+
+        impl Clone for $name {
+            fn clone(&self) -> Self {
+                let mut cloned = Self {
+                    strings: self.strings.clone(),
+                    pointers: Vec::with_capacity(self.len())
+                };
+
+                cloned.reconstruct_pointers();
+
+                cloned
             }
         }
     }
