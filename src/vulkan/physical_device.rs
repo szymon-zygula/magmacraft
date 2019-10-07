@@ -39,6 +39,7 @@ pub struct PhysicalDeviceSelector {
 
     devices: BuilderInternal<Vec<vk::PhysicalDevice>>,
     selected_device: BuilderInternal<vk::PhysicalDevice>,
+    is_selected_discrete: bool,
 
     physical_device: BuilderProduct<PhysicalDevice>
 }
@@ -97,38 +98,25 @@ impl PhysicalDeviceSelector {
 
     fn select_suitable_device(&mut self) -> Result<(), VulkanError> {
         for device in self.devices.get() {
-            let properties = self.get_device_properties(*device)?;
-            let features = self.get_device_features(*device)?;
-
-            let is_device_suitable = 
-                self.are_required_queue_families_supported(*device)? &&
-                self.are_required_extensions_supported(*device)?;
-
-            if !is_device_suitable {
-                continue;
+            if self.is_device_suitable(*device)? {
+                self.selected_device.set(*device);
             }
 
+            // If selected device is a discrete GPU, it's good enough
+            if self.is_device_discrete(*device)? {
+                return Ok(());
+            }
         }
 
         Ok(())
     }
 
-    fn get_device_properties(&self, device: vk::PhysicalDevice) -> Result<vk::PhysicalDeviceProperties, VulkanError> {
-        let properties = unsafe {
-            self.vulkan_state.get()?.get_instance()
-                .get_physical_device_properties(device)
-        };
+    fn is_device_suitable(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
+        let is_suitable =
+            self.are_required_queue_families_supported(device)? &&
+            self.are_required_extensions_supported(device)?;
 
-        Ok(properties)
-    }
-
-    fn get_device_features(&self, device: vk::PhysicalDevice) -> Result<vk::PhysicalDeviceFeatures, VulkanError> {
-        let features = unsafe {
-            self.vulkan_state.get()?.get_instance()
-                .get_physical_device_features(device)
-        };
-
-        Ok(features)
+        Ok(is_suitable)
     }
 
     fn are_required_queue_families_supported(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
@@ -193,6 +181,30 @@ impl PhysicalDeviceSelector {
         }
 
         found
+    }
+
+    fn is_device_discrete(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
+        let properties = self.get_device_properties(device)?;
+
+        Ok(properties.device_type == vk::PhysicalDeviceType::DISCRETE_GPU)
+    }
+
+    fn get_device_properties(&self, device: vk::PhysicalDevice) -> Result<vk::PhysicalDeviceProperties, VulkanError> {
+        let properties = unsafe {
+            self.vulkan_state.get()?.get_instance()
+                .get_physical_device_properties(device)
+        };
+
+        Ok(properties)
+    }
+
+    fn get_device_features(&self, device: vk::PhysicalDevice) -> Result<vk::PhysicalDeviceFeatures, VulkanError> {
+        let features = unsafe {
+            self.vulkan_state.get()?.get_instance()
+                .get_physical_device_features(device)
+        };
+
+        Ok(features)
     }
 
     fn create_physical_device(&mut self) {
