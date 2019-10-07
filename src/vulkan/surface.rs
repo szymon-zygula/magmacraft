@@ -1,8 +1,7 @@
 use std::rc::Rc;
 use ash::{
     self,
-    vk::{self, Handle},
-    version::InstanceV1_0
+    vk::{self, Handle}
 };
 use glfw;
 use crate::{
@@ -38,6 +37,14 @@ impl Surface {
 
     pub fn get_handle(&self) -> vk::SurfaceKHR {
         self.vk_surface
+    }
+
+    pub unsafe fn is_supported_by_vk_device(&self, physical_device: vk::PhysicalDevice, queue_family_index: u32) -> bool {
+        self.surface_loader.get_physical_device_surface_support(
+            physical_device,
+            queue_family_index,
+            self.vk_surface
+        )
     }
 }
 
