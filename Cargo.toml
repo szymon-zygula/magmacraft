@@ -1,0 +1,11 @@
+[package]
+name = "magmacraft"
+version = "0.1.0"
+authors = ["Szymon Zyguła <szymon@zygula.eu>"]
+edition = "2018"
+
+[dependencies]
+custom_error = "1.7.1"
+glfw = { version = "0.32.0", features = ["vulkan", "image"] }
+ash = "0.29.0"
+vk-mem = "0.1.8"
