@@ -16,7 +16,7 @@ fn main() -> Result<(), renderer::RendererError> {
         .build()
         .expect("failed to create game window");
 
-    let renderer = Renderer::new(&window)?;
+    let _renderer = Renderer::new(&window)?;
 
     while window.loop_condition() {
         window.poll_events();

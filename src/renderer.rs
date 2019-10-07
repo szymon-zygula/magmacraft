@@ -25,7 +25,7 @@ impl Renderer {
             .instance_extensions(glfw_extensions)
             .build()?;
 
-        let surface = vulkan::surface::Surface::new(&window, &vulkan_state);
+        let _surface = vulkan::surface::Surface::new(&window, &vulkan_state);
 
         Ok(Renderer {
             vulkan_state
