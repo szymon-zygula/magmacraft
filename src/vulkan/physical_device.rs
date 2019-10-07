@@ -1,6 +1,8 @@
 use std::{
     collections::HashSet,
-    rc::Rc
+    rc::Rc,
+    iter::FromIterator,
+    clone::Clone
 };
 use ash::{
     self,
@@ -19,7 +21,9 @@ use crate::{
 };
 
 pub struct PhysicalDevice {
-    vk_physical_device: vk::PhysicalDevice
+    vk_physical_device: vk::PhysicalDevice,
+    queue_family_indices: QueueFamilyIndices,
+    requested_extensions: PhysicalDeviceExtensions
 }
 
 impl PhysicalDevice {
@@ -27,6 +31,23 @@ impl PhysicalDevice {
         PhysicalDeviceSelector {
             ..Default::default()
         }
+    }
+
+    pub fn get_queue_family_index(&self, queue_family: QueueFamily) -> Result<u32, VulkanError> {
+        let indice = self.queue_family_indices.get_indice(queue_family);
+        indice.ok_or(VulkanError::QueueFamilyNotSupported)
+    }
+
+    pub fn get_raw_extension_names(&self) -> &[*const std::os::raw::c_char] {
+        self.requested_extensions.get_pointers()
+    }
+}
+
+impl std::ops::Deref for PhysicalDevice {
+    type Target = vk::PhysicalDevice;
+
+    fn deref(&self) -> &Self::Target {
+        &self.vk_physical_device
     }
 }
 
@@ -39,7 +60,7 @@ pub struct PhysicalDeviceSelector {
 
     devices: BuilderInternal<Vec<vk::PhysicalDevice>>,
     selected_device: BuilderInternal<vk::PhysicalDevice>,
-    is_selected_discrete: bool,
+    queue_family_indices: BuilderInternal<QueueFamilyIndices>,
 
     physical_device: BuilderProduct<PhysicalDevice>
 }
@@ -50,7 +71,8 @@ impl PhysicalDeviceSelector {
         self
     }
 
-    pub fn queue_families(mut self, families: HashSet<QueueFamily>) -> Self {
+    pub fn queue_families(mut self, families: &Vec<QueueFamily>) -> Self {
+        let families = HashSet::from_iter(families.clone().into_iter());
         self.required_queue_families.set(families);
         self
     }
@@ -100,6 +122,8 @@ impl PhysicalDeviceSelector {
         for device in self.devices.get() {
             if self.is_device_suitable(*device)? {
                 self.selected_device.set(*device);
+                let queue_family_indices = self.get_queue_family_indices(*device)?;
+                self.queue_family_indices.set(queue_family_indices);
             }
 
             // If selected device is a discrete GPU, it's good enough
@@ -120,15 +144,18 @@ impl PhysicalDeviceSelector {
     }
 
     fn are_required_queue_families_supported(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
+        let queue_family_indices = self.get_queue_family_indices(device)?;
+        Ok(queue_family_indices.does_support_families(self.required_queue_families.get()?))
+    }
+
+    fn get_queue_family_indices(&self, device: vk::PhysicalDevice) -> Result<QueueFamilyIndices, VulkanError> {
         let queue_families = self.get_device_queue_families(device)?;
 
-        let queue_family_indices = QueueFamilyIndices::from_properties(
+        Ok(QueueFamilyIndices::from_properties(
             queue_families,
             device,
             Some(self.compatible_surface.get()?),
-        );
-
-       Ok(queue_family_indices.does_support_families(self.required_queue_families.get()?))
+        ))
     }
 
     fn get_device_queue_families(&self, device: vk::PhysicalDevice) -> Result<Vec<vk::QueueFamilyProperties>, VulkanError> {
@@ -209,12 +236,14 @@ impl PhysicalDeviceSelector {
 
     fn create_physical_device(&mut self) {
         self.physical_device.set(PhysicalDevice {
-            vk_physical_device: self.selected_device.take()
+            vk_physical_device: self.selected_device.take(),
+            queue_family_indices: self.queue_family_indices.take(),
+            requested_extensions: self.required_extensions.clone()
         });
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Hash, PartialEq, Eq, Clone)]
 pub enum QueueFamily {
     Graphics,
     Compute,

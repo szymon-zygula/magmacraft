@@ -9,7 +9,8 @@ custom_error!{pub VulkanError
     InstanceCreateError {source: ash::InstanceError} = "failed to create vulkan instance: {source}",
     InstanceBuildError {source: BuilderError} = "failed to build instance",
     InstanceExtensionsCreationError {source: std::ffi::NulError} = "failed to create C-like nul-terminated string: {source}",
-    SuitableDeviceNotFound = "failed to find a physical device fulfilling all criteria"
+    SuitableDeviceNotFound = "failed to find a physical device fulfilling all criteria",
+    QueueFamilyNotSupported = "physical device was asked about an index of a queue family that it does not support"
 }
 
 pub mod state;
