@@ -12,6 +12,7 @@ use ash::{
     }
 };
 use crate::{
+    builder::*,
     vulkan::{
         self,
         VulkanError,
@@ -81,5 +82,34 @@ impl Drop for LogicalDevice {
         unsafe {
             self.destroy_device(None);
         }
+    }
+}
+
+struct LogicalDeviceBuilder {
+    vulkan_state: BuilderRequirement<Rc<VulkanState>>,
+    physical_device: BuilderRequirement<Rc<vulkan::physical_device::PhysicalDevice>>,
+    queue_families: BuilderRequirement<Vec<QueueFamily>>,
+
+    logical_device: BuilderProduct<LogicalDevice>
+}
+
+impl LogicalDeviceBuilder {
+    pub fn vulkan_state(mut self, vulkan_state: Rc<VulkanState>) -> Self {
+        self.vulkan_state.set(vulkan_state);
+        self
+    }
+
+    pub fn physical_device(mut self, physical_device: Rc<vulkan::physical_device::PhysicalDevice>) -> Self {
+        self.physical_device.set(physical_device);
+        self
+    }
+
+    pub fn queue_families(mut self, queue_families: Vec<QueueFamily>) -> Self {
+        self.queue_families.set(queue_families);
+        self
+    }
+
+    pub fn build(mut self) -> LogicalDevice {
+        self.logical_device.unwrap()
     }
 }
