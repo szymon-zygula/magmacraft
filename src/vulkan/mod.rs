@@ -19,3 +19,4 @@ pub mod debug_utils;
 pub mod physical_device;
 pub mod logical_device;
 pub mod surface;
+pub mod swapchain;
