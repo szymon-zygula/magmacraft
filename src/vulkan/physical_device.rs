@@ -43,7 +43,10 @@ impl PhysicalDevice {
         self.requested_extensions.get_pointers()
     }
 
-    pub fn get_surface_properties(&self, surface: &vulkan::surface::Surface) -> Result<PhysicalDeviceSurfaceProperties, VulkanError> {
+    pub fn get_surface_properties(
+        &self,
+        surface: &vulkan::surface::Surface
+    ) -> Result<PhysicalDeviceSurfaceProperties, VulkanError> {
         let surface_loader = self.vulkan_state.get_surface_loader();
 
         let capabilities = unsafe {
@@ -173,12 +176,18 @@ impl PhysicalDeviceSelector {
         Ok(is_suitable)
     }
 
-    fn are_required_queue_families_supported(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
+    fn are_required_queue_families_supported(
+        &self,
+        device: vk::PhysicalDevice
+    ) -> Result<bool, VulkanError> {
         let queue_family_indices = self.get_queue_family_indices(device)?;
         Ok(queue_family_indices.does_support_families(self.required_queue_families.get()?))
     }
 
-    fn get_queue_family_indices(&self, device: vk::PhysicalDevice) -> Result<QueueFamilyIndices, VulkanError> {
+    fn get_queue_family_indices(
+        &self,
+        device: vk::PhysicalDevice
+    ) -> Result<QueueFamilyIndices, VulkanError> {
         let queue_families = self.get_device_queue_families(device)?;
 
         Ok(QueueFamilyIndices::from_properties(
@@ -188,7 +197,10 @@ impl PhysicalDeviceSelector {
         ))
     }
 
-    fn get_device_queue_families(&self, device: vk::PhysicalDevice) -> Result<Vec<vk::QueueFamilyProperties>, VulkanError> {
+    fn get_device_queue_families(
+        &self,
+        device: vk::PhysicalDevice
+    ) -> Result<Vec<vk::QueueFamilyProperties>, VulkanError> {
         let queue_family_properties = unsafe {
             self.vulkan_state.get()?.get_instance()
                 .get_physical_device_queue_family_properties(device)
@@ -209,7 +221,10 @@ impl PhysicalDeviceSelector {
         Ok(true)
     }
 
-    fn get_device_extensions_properties(&self, device: vk::PhysicalDevice) -> Result<Vec<vk::ExtensionProperties>, VulkanError> {
+    fn get_device_extensions_properties(
+        &self,
+        device: vk::PhysicalDevice
+    ) -> Result<Vec<vk::ExtensionProperties>, VulkanError> {
         let extension_properties = unsafe {
             self.vulkan_state.get()?.get_instance()
                 .enumerate_device_extension_properties(device)
@@ -224,7 +239,10 @@ impl PhysicalDeviceSelector {
         Ok(extension_properties)
     }
 
-    fn is_extension_supported(device_extension_properties: &Vec<vk::ExtensionProperties>, required_extension_name: &std::ffi::CStr) -> bool {
+    fn is_extension_supported(
+        device_extension_properties: &Vec<vk::ExtensionProperties>,
+        required_extension_name: &std::ffi::CStr
+    ) -> bool {
         let mut found = false;
         for extension_properties in device_extension_properties {
             let device_extension_name = unsafe { std::ffi::CStr::from_ptr(
@@ -246,7 +264,10 @@ impl PhysicalDeviceSelector {
         Ok(properties.device_type == vk::PhysicalDeviceType::DISCRETE_GPU)
     }
 
-    fn get_device_properties(&self, device: vk::PhysicalDevice) -> Result<vk::PhysicalDeviceProperties, VulkanError> {
+    fn get_device_properties(
+        &self,
+        device: vk::PhysicalDevice
+    ) -> Result<vk::PhysicalDeviceProperties, VulkanError> {
         let properties = unsafe {
             self.vulkan_state.get()?.get_instance()
                 .get_physical_device_properties(device)
@@ -303,7 +324,11 @@ pub struct QueueFamilyIndices {
 }
 
 impl QueueFamilyIndices {
-    pub fn from_properties(families: Vec<vk::QueueFamilyProperties>, physical_device: vk::PhysicalDevice, surface: Option<&vulkan::surface::Surface>) -> Self {
+    pub fn from_properties(
+        families: Vec<vk::QueueFamilyProperties>,
+        physical_device: vk::PhysicalDevice,
+        surface: Option<&vulkan::surface::Surface>
+    ) -> Self {
         let mut indices = QueueFamilyIndices {
             ..Default::default()
         };
@@ -315,7 +340,13 @@ impl QueueFamilyIndices {
         indices
     }
 
-    fn update_family_support(&mut self, physical_device: vk::PhysicalDevice, queue_family_flags: vk::QueueFlags, index: u32, surface: Option<&vulkan::surface::Surface>) {
+    fn update_family_support(
+        &mut self,
+        physical_device: vk::PhysicalDevice,
+        queue_family_flags: vk::QueueFlags,
+        index: u32,
+        surface: Option<&vulkan::surface::Surface>
+    ) {
         self.update_vulkan_family_support(queue_family_flags, index);
 
         if let Some(surface) = surface {
@@ -367,7 +398,12 @@ impl QueueFamilyIndices {
         }
     }
 
-    fn update_surface_support(&mut self, physical_device: vk::PhysicalDevice, queue_family_index: u32, surface: &vulkan::surface::Surface) {
+    fn update_surface_support(
+        &mut self,
+        physical_device: vk::PhysicalDevice,
+        queue_family_index: u32,
+        surface: &vulkan::surface::Surface
+    ) {
         let presentation_supported = unsafe {
             surface.is_supported_by_vk_device(physical_device, queue_family_index)
         };
