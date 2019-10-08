@@ -34,13 +34,13 @@ impl PhysicalDevice {
         }
     }
 
-    pub fn get_queue_family_index(&self, queue_family: QueueFamily) -> Result<u32, VulkanError> {
-        let indice = self.queue_family_indices.get_indice(queue_family);
+    pub fn get_queue_family_index(&self, queue_family: QueueFamily) -> Result<QueueFamilyIndex, VulkanError> {
+        let indice = self.queue_family_indices.get_index(queue_family);
         indice.ok_or(VulkanError::QueueFamilyNotSupported)
     }
 
-    pub fn get_raw_extension_names(&self) -> &[*const std::os::raw::c_char] {
-        self.requested_extensions.get_pointers()
+    pub fn get_requested_extensions(&self) -> &PhysicalDeviceExtensions {
+        &self.requested_extensions
     }
 
     pub fn get_surface_properties(
@@ -303,7 +303,9 @@ pub struct PhysicalDeviceSurfaceProperties {
     pub present_modes: Vec<vk::PresentModeKHR>
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+pub type QueueFamilyIndex = u32;
+
+#[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum QueueFamily {
     Graphics,
     Compute,
@@ -316,11 +318,11 @@ pub enum QueueFamily {
 pub struct QueueFamilyIndices {
     weakly_dedicated_transfer: bool,
     strongly_dedicated_transfer: bool,
-    graphics: Option<u32>,
-    compute: Option<u32>,
-    transfer: Option<u32>,
-    sparse_binding: Option<u32>,
-    presentation: Option<u32>
+    graphics: Option<QueueFamilyIndex>,
+    compute: Option<QueueFamilyIndex>,
+    transfer: Option<QueueFamilyIndex>,
+    sparse_binding: Option<QueueFamilyIndex>,
+    presentation: Option<QueueFamilyIndex>
 }
 
 impl QueueFamilyIndices {
@@ -334,7 +336,7 @@ impl QueueFamilyIndices {
         };
 
         for (i, queue_family) in families.iter().enumerate() {
-            indices.update_family_support(physical_device, queue_family.queue_flags, i as u32, surface);
+            indices.update_family_support(physical_device, queue_family.queue_flags, i as QueueFamilyIndex, surface);
         }
 
         indices
@@ -344,7 +346,7 @@ impl QueueFamilyIndices {
         &mut self,
         physical_device: vk::PhysicalDevice,
         queue_family_flags: vk::QueueFlags,
-        index: u32,
+        index: QueueFamilyIndex,
         surface: Option<&vulkan::surface::Surface>
     ) {
         self.update_vulkan_family_support(queue_family_flags, index);
@@ -354,14 +356,14 @@ impl QueueFamilyIndices {
         }
     }
 
-    fn update_vulkan_family_support(&mut self, flags: vk::QueueFlags, index: u32) {
+    fn update_vulkan_family_support(&mut self, flags: vk::QueueFlags, index: QueueFamilyIndex) {
         self.try_set_transfer(flags, index);
         self.try_set_graphics(flags, index);
         self.try_set_compute(flags, index);
         self.try_set_sparse_binding(flags, index);
     }
 
-    fn try_set_transfer(&mut self, flags: vk::QueueFlags, index: u32) {
+    fn try_set_transfer(&mut self, flags: vk::QueueFlags, index: QueueFamilyIndex) {
         if flags.contains(vk::QueueFlags::TRANSFER) && !self.strongly_dedicated_transfer {
             self.transfer = Some(index);
             self.weakly_dedicated_transfer = true;
@@ -372,27 +374,27 @@ impl QueueFamilyIndices {
         }
     }
 
-    fn try_set_graphics(&mut self, flags: vk::QueueFlags, index: u32) {
+    fn try_set_graphics(&mut self, flags: vk::QueueFlags, index: QueueFamilyIndex) {
         if flags.contains(vk::QueueFlags::GRAPHICS) {
             self.graphics = Some(index);
             self.try_set_not_dedicated_transfer(index);
         }
     }
 
-    fn try_set_compute(&mut self, flags: vk::QueueFlags, index: u32) {
+    fn try_set_compute(&mut self, flags: vk::QueueFlags, index: QueueFamilyIndex) {
         if flags.contains(vk::QueueFlags::COMPUTE) {
             self.compute = Some(index);
             self.try_set_not_dedicated_transfer(index);
         }
     }
 
-    fn try_set_sparse_binding(&mut self, flags: vk::QueueFlags, index: u32) {
+    fn try_set_sparse_binding(&mut self, flags: vk::QueueFlags, index: QueueFamilyIndex) {
         if flags.contains(vk::QueueFlags::SPARSE_BINDING) {
             self.sparse_binding = Some(index);
         }
     }
 
-    fn try_set_not_dedicated_transfer(&mut self, index: u32) {
+    fn try_set_not_dedicated_transfer(&mut self, index: QueueFamilyIndex) {
         if !self.weakly_dedicated_transfer {
             self.transfer = Some(index);
         }
@@ -401,7 +403,7 @@ impl QueueFamilyIndices {
     fn update_surface_support(
         &mut self,
         physical_device: vk::PhysicalDevice,
-        queue_family_index: u32,
+        queue_family_index: QueueFamilyIndex,
         surface: &vulkan::surface::Surface
     ) {
         let presentation_supported = unsafe {
@@ -413,7 +415,7 @@ impl QueueFamilyIndices {
         }
     }
 
-    pub fn get_indice(&self, family: QueueFamily) -> Option<u32> {
+    pub fn get_index(&self, family: QueueFamily) -> Option<QueueFamilyIndex> {
         match family {
             QueueFamily::Graphics => self.graphics,
             QueueFamily::Compute => self.compute,

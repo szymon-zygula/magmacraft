@@ -36,11 +36,11 @@ impl<T> BuilderInternal<T> {
     }
 
     pub fn get(&self) -> &T {
-        self.0.as_ref().expect("internal builder field not set before use or after")
+        self.0.as_ref().expect("internal builder field not set or moved out before use")
     }
 
     pub fn get_mut(&mut self) -> &mut T {
-        self.0.as_mut().expect("internal builder field not set before use or after")
+        self.0.as_mut().expect("internal builder field not set or moved out before use")
     }
 
     pub fn take(&mut self) -> T {

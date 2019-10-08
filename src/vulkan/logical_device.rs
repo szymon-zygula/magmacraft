@@ -17,7 +17,12 @@ use crate::{
         self,
         VulkanError,
         state::VulkanState,
-        physical_device::QueueFamily
+        physical_device::{
+            PhysicalDevice,
+            QueueFamilyIndex,
+            QueueFamily,
+            PhysicalDeviceExtensions
+        }
     }
 };
 
@@ -26,46 +31,10 @@ pub struct LogicalDevice {
 }
 
 impl LogicalDevice {
-    pub fn new(vulkan_state: Rc<VulkanState>, physical_device: &vulkan::physical_device::PhysicalDevice, queue_families: Vec<QueueFamily>) -> Result<Self, VulkanError> {
-        let extension_names = physical_device.get_raw_extension_names();
-
-        let mut unique_queue_family_indices = HashSet::new();
-        for queue_family in queue_families {
-            let index = physical_device.get_queue_family_index(queue_family)?;
-            unique_queue_family_indices.insert(index);
+    pub fn builder() -> LogicalDeviceBuilder {
+        LogicalDeviceBuilder {
+            ..Default::default()
         }
-
-        let queue_family_indices = Vec::from_iter(unique_queue_family_indices.into_iter());
-
-        let mut queue_create_infos = Vec::with_capacity(queue_family_indices.len());
-        for queue_family_index in queue_family_indices {
-            let create_info = *vk::DeviceQueueCreateInfo::builder()
-                .queue_family_index(queue_family_index)
-                .queue_priorities(&[1.0]);
-
-            queue_create_infos.push(create_info);
-        }
-
-
-        let builder = vk::DeviceCreateInfo::builder()
-            .enabled_extension_names(extension_names)
-            .queue_create_infos(queue_create_infos.as_slice());
-
-        let vk_logical_device = unsafe { vulkan_state.get_instance().create_device(
-            **physical_device,
-            &*builder,
-            None
-            ).map_err(|e| {
-                VulkanError::OperationFailed {
-                    source: e,
-                    operation: String::from("create logical device")
-                }
-            })?
-        };
-
-        Ok(LogicalDevice {
-            vk_logical_device
-        })
     }
 }
 
@@ -85,31 +54,125 @@ impl Drop for LogicalDevice {
     }
 }
 
-struct LogicalDeviceBuilder {
+#[derive(Default)]
+pub struct LogicalDeviceBuilder {
     vulkan_state: BuilderRequirement<Rc<VulkanState>>,
-    physical_device: BuilderRequirement<Rc<vulkan::physical_device::PhysicalDevice>>,
+    physical_device: BuilderRequirement<Rc<PhysicalDevice>>,
     queue_families: BuilderRequirement<Vec<QueueFamily>>,
+
+    unique_queue_family_indices: BuilderInternal<Vec<QueueFamilyIndex>>,
+    queue_create_infos: BuilderInternal<Vec<vk::DeviceQueueCreateInfo>>,
+    device_extensions: BuilderInternal<PhysicalDeviceExtensions>,
+    logical_device_create_info: BuilderInternal<vk::DeviceCreateInfo>,
 
     logical_device: BuilderProduct<LogicalDevice>
 }
 
 impl LogicalDeviceBuilder {
+    const DEFAULT_QUEUE_PRIORITIES: [f32; 1] = [1.0];
+
     pub fn vulkan_state(mut self, vulkan_state: Rc<VulkanState>) -> Self {
         self.vulkan_state.set(vulkan_state);
         self
     }
 
-    pub fn physical_device(mut self, physical_device: Rc<vulkan::physical_device::PhysicalDevice>) -> Self {
+    pub fn physical_device(mut self, physical_device: Rc<PhysicalDevice>) -> Self {
         self.physical_device.set(physical_device);
         self
     }
 
-    pub fn queue_families(mut self, queue_families: Vec<QueueFamily>) -> Self {
-        self.queue_families.set(queue_families);
+    pub fn queue_families(mut self, queue_families: &Vec<QueueFamily>) -> Self {
+        self.queue_families.set(queue_families.clone());
         self
     }
 
-    pub fn build(mut self) -> LogicalDevice {
-        self.logical_device.unwrap()
+    pub fn build(mut self) -> Result<LogicalDevice, VulkanError> {
+        self.get_ready_for_creation()?;
+        self.create_logical_device()?;
+
+        Ok(self.logical_device.unwrap())
+    }
+
+    fn get_ready_for_creation(&mut self) -> Result<(), VulkanError> {
+        self.init_unique_queue_family_indices()?;
+        self.init_queue_create_infos()?;
+        self.init_device_extensions()?;
+        self.init_logical_device_create_info();
+
+        Ok(())
+    }
+
+    fn init_unique_queue_family_indices(&mut self) -> Result<(), VulkanError> {
+        let mut unique_queue_family_indices = HashSet::new();
+        for queue_family in self.queue_families.get()? {
+            self.insert_queue_family_index_into_hashset(
+                *queue_family, &mut unique_queue_family_indices
+            )?;
+        }
+
+        self.unique_queue_family_indices.set(
+            Vec::from_iter(unique_queue_family_indices.into_iter())
+        );
+
+        Ok(())
+    }
+
+    fn insert_queue_family_index_into_hashset(&self, queue_family: QueueFamily, hashset: &mut HashSet<QueueFamilyIndex>) -> Result<(), VulkanError> {
+        let index = self.physical_device.get()?
+            .get_queue_family_index(queue_family)?;
+        hashset.insert(index);
+
+        Ok(())
+    }
+
+    fn init_queue_create_infos(&mut self) -> Result<(), VulkanError> {
+        let mut queue_create_infos = Vec::with_capacity(self.unique_queue_family_indices.get().len());
+        for queue_family_index in self.unique_queue_family_indices.get() {
+            let builder = vk::DeviceQueueCreateInfo::builder()
+                .queue_family_index(*queue_family_index)
+                .queue_priorities(&Self::DEFAULT_QUEUE_PRIORITIES);
+
+            queue_create_infos.push(*builder);
+        }
+
+        self.queue_create_infos.set(queue_create_infos);
+
+        Ok(())
+    }
+
+    fn init_device_extensions(&mut self) -> Result<(), VulkanError> {
+        let device_extensions = self.physical_device.get()?.get_requested_extensions();
+        self.device_extensions.set(device_extensions.clone());
+
+        Ok(())
+    }
+
+    fn init_logical_device_create_info(&mut self) {
+        let builder = vk::DeviceCreateInfo::builder()
+            .queue_create_infos(self.queue_create_infos.get().as_slice())
+            .enabled_extension_names(self.device_extensions.get().get_pointers());
+
+        self.logical_device_create_info.set(*builder);
+    }
+
+    fn create_logical_device(&mut self) -> Result<(), VulkanError> {
+        let vk_logical_device = unsafe {
+            self.vulkan_state.get()?.get_instance().create_device(
+                ***self.physical_device.get()?,
+                &*self.logical_device_create_info.get(),
+                None
+            ).map_err(|e| {
+                VulkanError::OperationFailed {
+                    source: e,
+                    operation: String::from("create logical device")
+                }
+            })?
+        };
+
+        self.logical_device.set(LogicalDevice {
+            vk_logical_device
+        });
+
+        Ok(())
     }
 }

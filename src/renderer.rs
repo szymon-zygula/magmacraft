@@ -37,13 +37,18 @@ impl Renderer {
             ash::extensions::khr::Swapchain::name().to_str().unwrap()
         );
         let queue_families = vec![QueueFamily::Graphics, QueueFamily::Transfer];
-        let physical_device = vulkan::physical_device::PhysicalDevice::selector()
+        let physical_device = Rc::new(vulkan::physical_device::PhysicalDevice::selector()
             .vulkan_state(Rc::clone(&vulkan_state))
             .queue_families(&queue_families)
             .surface_compatible(Rc::clone(&surface))
             .device_extensions(physical_device_extensions)
-            .select()?;
-        let _logical_device = vulkan::logical_device::LogicalDevice::new(Rc::clone(&vulkan_state), &physical_device, queue_families);
+            .select()?);
+
+        let _logical_device = vulkan::logical_device::LogicalDevice::builder()
+            .vulkan_state(Rc::clone(&vulkan_state))
+            .physical_device(Rc::clone(&physical_device))
+            .queue_families(&queue_families)
+            .build();
 
         Ok(Renderer {
             vulkan_state
