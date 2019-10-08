@@ -43,19 +43,19 @@ impl PhysicalDevice {
         self.requested_extensions.get_pointers()
     }
 
-    pub fn get_surface_properties(&self, surface: vulkan::surface::Surface) -> Result<PhysicalDeviceSurfaceProperties, VulkanError> {
+    pub fn get_surface_properties(&self, surface: &vulkan::surface::Surface) -> Result<PhysicalDeviceSurfaceProperties, VulkanError> {
         let surface_loader = self.vulkan_state.get_surface_loader();
 
         let capabilities = unsafe {
-            surface_loader.get_physical_device_surface_capabilities(self.vk_physical_device, *surface)
+            surface_loader.get_physical_device_surface_capabilities(self.vk_physical_device, **surface)
         }.map_err(Self::surface_properties_error_mapping)?;
 
         let formats = unsafe {
-            surface_loader.get_physical_device_surface_formats(self.vk_physical_device, *surface)
+            surface_loader.get_physical_device_surface_formats(self.vk_physical_device, **surface)
         }.map_err(Self::surface_properties_error_mapping)?;
 
         let present_modes = unsafe {
-            surface_loader.get_physical_device_surface_present_modes(self.vk_physical_device, *surface)
+            surface_loader.get_physical_device_surface_present_modes(self.vk_physical_device, **surface)
         }.map_err(Self::surface_properties_error_mapping)?;
 
         Ok(PhysicalDeviceSurfaceProperties {
