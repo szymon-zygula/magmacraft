@@ -21,6 +21,7 @@ use crate::{
 };
 
 pub struct PhysicalDevice {
+    vulkan_state: Rc<VulkanState>,
     vk_physical_device: vk::PhysicalDevice,
     queue_family_indices: QueueFamilyIndices,
     requested_extensions: PhysicalDeviceExtensions
@@ -40,6 +41,35 @@ impl PhysicalDevice {
 
     pub fn get_raw_extension_names(&self) -> &[*const std::os::raw::c_char] {
         self.requested_extensions.get_pointers()
+    }
+
+    pub fn get_surface_properties(&self, surface: vulkan::surface::Surface) -> Result<PhysicalDeviceSurfaceProperties, VulkanError> {
+        let surface_loader = self.vulkan_state.get_surface_loader();
+
+        let capabilities = unsafe {
+            surface_loader.get_physical_device_surface_capabilities(self.vk_physical_device, *surface)
+        }.map_err(Self::surface_properties_error_mapping)?;
+
+        let formats = unsafe {
+            surface_loader.get_physical_device_surface_formats(self.vk_physical_device, *surface)
+        }.map_err(Self::surface_properties_error_mapping)?;
+
+        let present_modes = unsafe {
+            surface_loader.get_physical_device_surface_present_modes(self.vk_physical_device, *surface)
+        }.map_err(Self::surface_properties_error_mapping)?;
+
+        Ok(PhysicalDeviceSurfaceProperties {
+            capabilities,
+            formats,
+            present_modes
+        })
+    }
+
+    fn surface_properties_error_mapping(source: vk::Result) -> VulkanError {
+        VulkanError::OperationFailed {
+            source,
+            operation: String::from("get physical device surface properties")
+        }
     }
 }
 
@@ -89,7 +119,7 @@ impl PhysicalDeviceSelector {
 
     pub fn select(mut self) -> Result<PhysicalDevice, VulkanError> {
         self.get_ready_for_physical_device_creation()?;
-        self.create_physical_device();
+        self.create_physical_device()?;
 
         Ok(self.physical_device.unwrap())
     }
@@ -234,13 +264,22 @@ impl PhysicalDeviceSelector {
         Ok(features)
     }
 
-    fn create_physical_device(&mut self) {
+    fn create_physical_device(&mut self) -> Result<(), VulkanError> {
         self.physical_device.set(PhysicalDevice {
+            vulkan_state: Rc::clone(self.vulkan_state.get()?),
             vk_physical_device: self.selected_device.take(),
             queue_family_indices: self.queue_family_indices.take(),
             requested_extensions: self.required_extensions.clone()
         });
+
+        Ok(())
     }
+}
+
+pub struct PhysicalDeviceSurfaceProperties {
+    pub capabilities: vk::SurfaceCapabilitiesKHR,
+    pub formats: Vec<vk::SurfaceFormatKHR>,
+    pub present_modes: Vec<vk::PresentModeKHR>
 }
 
 #[derive(Hash, PartialEq, Eq, Clone)]
