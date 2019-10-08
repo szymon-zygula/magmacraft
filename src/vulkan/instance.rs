@@ -137,12 +137,7 @@ impl InstanceBuilder {
     fn get_validation_layer_properties(&self) -> Result<Vec<vk::LayerProperties>, VulkanError> {
         let properties = self.entry.get()?
             .enumerate_instance_layer_properties()
-            .map_err(|e| {
-                VulkanError::OperationFailed {
-                    source: e,
-                    operation: String::from("get available vaildation layers")
-                }
-            })?;
+            .map_err(VulkanError::operation_failed_mapping("get available vaildation layers"))?;
 
         Ok(properties)
     }

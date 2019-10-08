@@ -138,12 +138,7 @@ impl PhysicalDeviceSelector {
         let devices = unsafe { self.vulkan_state
             .get()?.get_instance()
             .enumerate_physical_devices()
-            .map_err(|e| {
-                VulkanError::OperationFailed {
-                    source: e,
-                    operation: String::from("enumerate physical devices")
-                }
-            })?
+            .map_err(VulkanError::operation_failed_mapping("enumerate physical devices"))?
         };
 
         self.devices.set(devices);
@@ -228,12 +223,7 @@ impl PhysicalDeviceSelector {
         let extension_properties = unsafe {
             self.vulkan_state.get()?.get_instance()
                 .enumerate_device_extension_properties(device)
-                .map_err(|e| {
-                    VulkanError::OperationFailed {
-                        source: e,
-                        operation: String::from("enumerate physical device extensions")
-                    }
-                })?
+                .map_err(VulkanError::operation_failed_mapping("enumerate physical device extensions"))?
         };
 
         Ok(extension_properties)

@@ -22,12 +22,7 @@ impl DebugMessenger {
 
         let debug_messenger = unsafe { debug_utils_loader
             .create_debug_utils_messenger(&debug_messenger_create_info, None)
-            .map_err(|e| {
-                VulkanError::OperationFailed {
-                    source: e,
-                    operation: String::from("create debug messenger")
-                }
-            })?
+            .map_err(VulkanError::operation_failed_mapping("create debug messenger"))?
         };
 
         Ok(DebugMessenger {

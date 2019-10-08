@@ -14,7 +14,6 @@ use ash::{
 use crate::{
     builder::*,
     vulkan::{
-        self,
         VulkanError,
         state::VulkanState,
         physical_device::{
@@ -161,12 +160,7 @@ impl LogicalDeviceBuilder {
                 ***self.physical_device.get()?,
                 &*self.logical_device_create_info.get(),
                 None
-            ).map_err(|e| {
-                VulkanError::OperationFailed {
-                    source: e,
-                    operation: String::from("create logical device")
-                }
-            })?
+            ).map_err(VulkanError::operation_failed_mapping("create logical device"))?
         };
 
         self.logical_device.set(LogicalDevice {

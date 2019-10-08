@@ -13,6 +13,18 @@ custom_error!{pub VulkanError
     QueueFamilyNotSupported = "physical device was asked about an index of a queue family that it does not support"
 }
 
+impl VulkanError {
+    fn operation_failed_mapping(operation: &str) -> impl FnOnce(vk::Result) -> VulkanError {
+        let operation = String::from(operation);
+        |error| {
+            VulkanError::OperationFailed {
+                source: error,
+                operation
+            }
+        }
+    }
+}
+
 pub mod state;
 pub mod instance;
 pub mod debug_utils;
