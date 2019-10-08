@@ -48,6 +48,13 @@ impl Surface {
     }
 }
 
+impl std::ops::Deref for Surface {
+    type Target = vk::SurfaceKHR;
+    fn deref(&self) -> &Self::Target {
+        &self.vk_surface
+    }
+}
+
 impl Drop for Surface {
     fn drop(&mut self) {
         unsafe {
