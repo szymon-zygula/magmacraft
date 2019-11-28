@@ -120,3 +120,11 @@ impl Drop for Swapchain {
         }
     }
 }
+
+struct SwapchainBuilder {
+
+}
+
+impl SwapchainBuilder {
+
+}
