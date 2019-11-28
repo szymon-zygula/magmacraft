@@ -39,6 +39,10 @@ impl PhysicalDevice {
         indice.ok_or(VulkanError::QueueFamilyNotSupported)
     }
 
+    pub fn is_transfer_queue_family_dedicated(&self) -> bool {
+        self.queue_family_indices.is_transfer_dedicated()
+    }
+
     pub fn get_requested_extensions(&self) -> &PhysicalDeviceExtensions {
         &self.requested_extensions
     }
@@ -413,6 +417,10 @@ impl QueueFamilyIndices {
             QueueFamily::SparseBinding => self.sparse_binding,
             QueueFamily::Presentation => self.presentation
         }
+    }
+
+    pub fn is_transfer_dedicated(&self) -> bool {
+        self.strongly_dedicated_transfer
     }
 
     pub fn does_support_families(&self, required_families: &HashSet<QueueFamily>) -> bool {
