@@ -17,7 +17,7 @@ custom_error!{pub VulkanError
         "failed to create C-like nul-terminated string: {source}",
     SuitableDeviceNotFound =
         "failed to find a physical device fulfilling all criteria",
-    QueueFamilyNotSupported {queue: physical_device::QueueFamily} =
+    QueueFamilyNotSupported {queue_family: physical_device::QueueFamily} =
         "physical device was asked about an index of a queue family that it does not support"
 }
 

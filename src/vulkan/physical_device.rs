@@ -36,7 +36,7 @@ impl PhysicalDevice {
 
     pub fn get_queue_family_index(&self, queue_family: QueueFamily) -> Result<QueueFamilyIndex, VulkanError> {
         let indice = self.queue_family_indices.get_index(queue_family);
-        indice.ok_or(VulkanError::QueueFamilyNotSupported)
+        indice.ok_or(VulkanError::QueueFamilyNotSupported {queue_family})
     }
 
     pub fn is_transfer_queue_family_dedicated(&self) -> bool {
