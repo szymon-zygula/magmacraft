@@ -45,11 +45,16 @@ impl Renderer {
             .device_extensions(physical_device_extensions)
             .select()?);
 
-        let _logical_device = vulkan::logical_device::LogicalDevice::builder()
+        let logical_device = Rc::new(vulkan::logical_device::LogicalDevice::builder()
             .vulkan_state(Rc::clone(&vulkan_state))
             .physical_device(Rc::clone(&physical_device))
             .queue_families(&queue_families)
-            .build();
+            .build()?);
+
+        let _swapchain = vulkan::swapchain::Swapchain::new(
+            Rc::clone(&physical_device),
+            Rc::clone(&logical_device),
+            Rc::clone(&surface), true);
 
         Ok(Renderer {
             vulkan_state

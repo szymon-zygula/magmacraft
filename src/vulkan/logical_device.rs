@@ -27,6 +27,7 @@ use crate::{
 
 pub struct LogicalDevice {
     vk_logical_device: ash::Device,
+    swapchain_loader: Rc<ash::extensions::khr::Swapchain>,
     // lifetime extenders
     _physical_device: Rc<PhysicalDevice>
 }
@@ -36,6 +37,10 @@ impl LogicalDevice {
         LogicalDeviceBuilder {
             ..Default::default()
         }
+    }
+
+    pub fn get_swapchain_loader(&self) -> Rc<ash::extensions::khr::Swapchain> {
+        Rc::clone(&self.swapchain_loader)
     }
 }
 
@@ -65,6 +70,7 @@ pub struct LogicalDeviceBuilder {
     queue_create_infos: BuilderInternal<Vec<vk::DeviceQueueCreateInfo>>,
     device_extensions: BuilderInternal<PhysicalDeviceExtensions>,
     logical_device_create_info: BuilderInternal<vk::DeviceCreateInfo>,
+    swapchain_loader: BuilderInternal<ash::extensions::khr::Swapchain>,
 
     logical_device: BuilderProduct<LogicalDevice>
 }
@@ -118,7 +124,10 @@ impl LogicalDeviceBuilder {
         Ok(())
     }
 
-    fn insert_queue_family_index_into_hashset(&self, queue_family: QueueFamily, hashset: &mut HashSet<QueueFamilyIndex>) -> Result<(), VulkanError> {
+    fn insert_queue_family_index_into_hashset(
+        &self, queue_family: QueueFamily,
+        hashset: &mut HashSet<QueueFamilyIndex>
+    ) -> Result<(), VulkanError> {
         let index = self.physical_device.get()?
             .get_queue_family_index(queue_family)?;
         hashset.insert(index);
@@ -158,19 +167,34 @@ impl LogicalDeviceBuilder {
 
     fn create_logical_device(&mut self) -> Result<(), VulkanError> {
         let physical_device = self.physical_device.get()?;
+        let vk_instance = &*self.vulkan_state.get()?.get_instance();
         let vk_logical_device = unsafe {
-            self.vulkan_state.get()?.get_instance().create_device(
+            vk_instance.create_device(
                 ***physical_device,
                 &*self.logical_device_create_info.get(),
                 None
             ).map_err(VulkanError::operation_failed_mapping("create logical device"))?
         };
 
+        let swapchain_loader =
+            Self::create_swapchain_loader(vk_instance, &vk_logical_device)?;
+
         self.logical_device.set(LogicalDevice {
             vk_logical_device,
+            swapchain_loader: Rc::new(swapchain_loader),
             _physical_device: Rc::clone(physical_device)
         });
 
         Ok(())
+    }
+
+    fn create_swapchain_loader(
+        vk_instance: &ash::Instance,
+        vk_logical_device: &ash::Device
+    ) -> Result<ash::extensions::khr::Swapchain, VulkanError> {
+        Ok(ash::extensions::khr::Swapchain::new(
+            vk_instance,
+            vk_logical_device
+        ))
     }
 }
