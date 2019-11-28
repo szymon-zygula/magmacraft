@@ -55,6 +55,11 @@ impl Window {
     pub fn get_raw_handle(&self) -> *mut glfw::ffi::GLFWwindow {
         self.glfw_window.window_ptr()
     }
+
+    pub fn get_framebuffer_size(&self) -> (u32, u32) {
+        let (width, height) = self.glfw_window.get_framebuffer_size();
+        (width as u32, height as u32)
+    }
 }
 
 #[derive(Default)]

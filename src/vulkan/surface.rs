@@ -13,8 +13,7 @@ use crate::{
 pub struct Surface {
     vk_surface: vk::SurfaceKHR,
     vulkan_state: Rc<vulkan::state::VulkanState>,
-    // lifetime extenders
-    _window: Rc<RefCell<Window>>
+    window: Rc<RefCell<Window>>
 }
 
 impl Surface {
@@ -35,7 +34,7 @@ impl Surface {
         Surface {
             vk_surface: vk::SurfaceKHR::from_raw(raw_vk_surface),
             vulkan_state: Rc::clone(&vulkan_state),
-            _window: Rc::clone(&window)
+            window: Rc::clone(&window)
         }
     }
 
@@ -43,9 +42,17 @@ impl Surface {
         self.vk_surface
     }
 
+    pub fn get_framebuffer_extent(&self) -> vk::Extent2D {
+        let (width, height) = self.window.borrow().get_framebuffer_size();
+
+        *vk::Extent2D::builder()
+            .width(width)
+            .height(height)
+    }
+
     pub unsafe fn is_supported_by_vk_device(
         &self, physical_device: vk::PhysicalDevice, queue_family_index: u32
-        ) -> bool {
+    ) -> bool {
         self.vulkan_state.get_surface_loader().get_physical_device_surface_support(
             physical_device,
             queue_family_index,
