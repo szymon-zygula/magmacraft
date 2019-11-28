@@ -11,16 +11,16 @@ use crate::{
 
 pub struct DebugMessenger {
     debug_utils_loader: Rc<ash::extensions::ext::DebugUtils>,
-    // used to keep instance alive so that it isnt' dropped before `DebugMessenger`
-    _instance: Rc<vulkan::instance::Instance>,
-    debug_messenger: vk::DebugUtilsMessengerEXT
+    vk_debug_messenger: vk::DebugUtilsMessengerEXT,
+    // lifetime extenders
+    _instance: Rc<vulkan::instance::Instance>
 }
 
 impl DebugMessenger {
     pub fn new(debug_utils_loader: Rc<ash::extensions::ext::DebugUtils>, instance: Rc<vulkan::instance::Instance>) -> Result<Self, VulkanError> {
         let debug_messenger_create_info = Self::get_create_info();
 
-        let debug_messenger = unsafe { debug_utils_loader
+        let vk_debug_messenger = unsafe { debug_utils_loader
             .create_debug_utils_messenger(&debug_messenger_create_info, None)
             .map_err(VulkanError::operation_failed_mapping("create debug messenger"))?
         };
@@ -28,7 +28,7 @@ impl DebugMessenger {
         Ok(DebugMessenger {
             debug_utils_loader,
             _instance: instance,
-            debug_messenger
+            vk_debug_messenger
         })
     }
 
@@ -54,7 +54,7 @@ impl DebugMessenger {
 impl Drop for DebugMessenger {
     fn drop(&mut self) {
         unsafe {
-            self.debug_utils_loader.destroy_debug_utils_messenger(self.debug_messenger, None);
+            self.debug_utils_loader.destroy_debug_utils_messenger(self.vk_debug_messenger, None);
         }
     }
 }

@@ -26,7 +26,9 @@ use crate::{
 };
 
 pub struct LogicalDevice {
-    vk_logical_device: ash::Device
+    vk_logical_device: ash::Device,
+    // lifetime extenders
+    _physical_device: Rc<PhysicalDevice>
 }
 
 impl LogicalDevice {
@@ -155,16 +157,18 @@ impl LogicalDeviceBuilder {
     }
 
     fn create_logical_device(&mut self) -> Result<(), VulkanError> {
+        let physical_device = self.physical_device.get()?;
         let vk_logical_device = unsafe {
             self.vulkan_state.get()?.get_instance().create_device(
-                ***self.physical_device.get()?,
+                ***physical_device,
                 &*self.logical_device_create_info.get(),
                 None
             ).map_err(VulkanError::operation_failed_mapping("create logical device"))?
         };
 
         self.logical_device.set(LogicalDevice {
-            vk_logical_device
+            vk_logical_device,
+            _physical_device: Rc::clone(physical_device)
         });
 
         Ok(())

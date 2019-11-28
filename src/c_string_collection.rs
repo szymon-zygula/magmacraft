@@ -2,12 +2,20 @@ macro_rules! create_c_string_collection_type {
     ($name:ident) => {
         #[derive(Default)]
         pub struct $name {
-            // pointers in `pointers` point to memory owned by `strings`
+            // Pointers in `pointers` point to memory owned by `strings`.
+            // `CString`s owned by `strings` are never mutated, so `pointers` are always valid
             strings: Vec<std::ffi::CString>,
             pointers: Vec<*const std::os::raw::c_char>
         }
 
         impl $name {
+            pub fn new() -> Self {
+                Self {
+                    strings: Vec::new(),
+                    pointers: Vec::new()
+                }
+            }
+
             pub fn from_vec(strings: Vec<String>) -> Self {
                 let vec_size = strings.len();
                 let mut c_strings = Self::with_capacity(vec_size);
@@ -23,13 +31,6 @@ macro_rules! create_c_string_collection_type {
                 Self {
                     strings: Vec::with_capacity(capacity),
                     pointers: Vec::with_capacity(capacity)
-                }
-            }
-
-            pub fn new() -> Self {
-                Self {
-                    strings: Vec::new(),
-                    pointers: Vec::new()
                 }
             }
 

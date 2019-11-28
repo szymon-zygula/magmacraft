@@ -6,17 +6,20 @@ mod vulkan;
 mod debugging;
 mod builder;
 
+use std::rc::Rc;
+use std::cell::RefCell;
 use window::{Window, WindowSize};
 use renderer::Renderer;
 
 fn main() -> Result<(), renderer::RendererError> {
-    let mut window = Window::builder()
+    let window = Rc::new(RefCell::new(Window::builder()
         .title("Magmacraft")
         .size(WindowSize { width: 800, height: 600 })
         .build()
-        .expect("failed to create game window");
+        .expect("failed to create game window")));
 
-    let _renderer = Renderer::new(&window)?;
+    let _renderer = Renderer::new(Rc::clone(&window))?;
+    let mut window = window.borrow_mut();
 
     while window.loop_condition() {
         window.poll_events();

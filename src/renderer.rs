@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::cell::RefCell;
 use custom_error::custom_error;
 use crate::{
     vulkan::{
@@ -22,15 +23,15 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(window: &Window) -> Result<Renderer, RendererError> {
-        let glfw_extensions = window.get_required_vulkan_extensions();
+    pub fn new(window: Rc<RefCell<Window>>) -> Result<Renderer, RendererError> {
+        let glfw_extensions = window.borrow().get_required_vulkan_extensions();
 
         let vulkan_state = Rc::new(VulkanState::builder()
             .debug_mode(debugging::is_in_debug_mode())
             .instance_extensions(glfw_extensions)
             .build()?);
 
-        let surface = Rc::new(vulkan::surface::Surface::new(&window, &vulkan_state));
+        let surface = Rc::new(vulkan::surface::Surface::new(Rc::clone(&window), Rc::clone(&vulkan_state)));
 
         let mut physical_device_extensions = PhysicalDeviceExtensions::new();
         physical_device_extensions.push(
