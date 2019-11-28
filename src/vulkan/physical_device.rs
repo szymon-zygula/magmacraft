@@ -299,13 +299,19 @@ pub struct PhysicalDeviceSurfaceProperties {
 
 pub type QueueFamilyIndex = u32;
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum QueueFamily {
     Graphics,
     Compute,
     Transfer,
     SparseBinding,
     Presentation
+}
+
+impl std::fmt::Display for QueueFamily {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{:?}", self)
+    }
 }
 
 #[derive(Default)]

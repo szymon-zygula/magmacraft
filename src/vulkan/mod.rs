@@ -10,7 +10,7 @@ custom_error!{pub VulkanError
     VulkanBuildError {source: BuilderError} = "failed to build a Vulkan structure",
     InstanceExtensionsCreationError {source: std::ffi::NulError} = "failed to create C-like nul-terminated string: {source}",
     SuitableDeviceNotFound = "failed to find a physical device fulfilling all criteria",
-    QueueFamilyNotSupported = "physical device was asked about an index of a queue family that it does not support"
+    QueueFamilyNotSupported {queue: physical_device::QueueFamily} = "physical device was asked about an index of a queue family that it does not support"
 }
 
 impl VulkanError {
