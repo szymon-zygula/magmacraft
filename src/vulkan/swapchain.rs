@@ -27,13 +27,20 @@ impl Swapchain {
 
     pub fn new(physical_device: Rc<PhysicalDevice>, logical_device: Rc<LogicalDevice>, surface: Rc<Surface>, vsync: bool) -> Result<Self, VulkanError> {
         let surface_properties = physical_device.get_surface_properties(&*surface)?;
-        let min_image_count = surface_properties.capabilities.min_image_count + Self::ADDITIONAL_IMAGES_COUNT;
+
+        let mut optimal_image_count = surface_properties.capabilities.min_image_count + Self::ADDITIONAL_IMAGES_COUNT;
+        let max_image_count = surface_properties.capabilities.max_image_count;
+
+        if max_image_count != 0 && optimal_image_count > max_image_count {
+            optimal_image_count = max_image_count;
+        };
+
         let image_format = Self::select_image_format(&surface_properties.formats);
         let image_extent = Self::select_image_extent(&surface_properties.capabilities, &*surface);
 
         let mut swapchain_create_info_builder = vk::SwapchainCreateInfoKHR::builder()
             .surface(**surface)
-            .min_image_count(min_image_count)
+            .min_image_count(optimal_image_count)
             .image_format(image_format.format)
             .image_color_space(image_format.color_space)
             .image_extent(image_extent)
