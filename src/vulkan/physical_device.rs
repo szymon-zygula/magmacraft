@@ -300,6 +300,7 @@ pub struct PhysicalDeviceSurfaceProperties {
 pub type QueueFamilyIndex = u32;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[allow(dead_code)]
 pub enum QueueFamily {
     Graphics,
     Compute,
