@@ -88,8 +88,8 @@ impl SwapchainBuilder {
     }
 
     pub fn build(mut self) -> Result<Swapchain, VulkanError> {
-        self.get_ready_for_creation();
-        self.create_swapchain();
+        self.get_ready_for_creation()?;
+        self.create_swapchain()?;
 
         Ok(self.swapchain.unwrap())
     }
@@ -99,9 +99,9 @@ impl SwapchainBuilder {
         self.init_image_format();
         self.init_image_extent()?;
         self.init_present_mode()?;
-        self.init_optimal_image_count();
-        self.init_image_sharing_info();
-        self.init_swapchain_create_info();
+        self.init_optimal_image_count()?;
+        self.init_image_sharing_info()?;
+        self.init_swapchain_create_info()?;
 
         Ok(())
     }
@@ -189,7 +189,6 @@ impl SwapchainBuilder {
         let graphics_index = physical_device.get_queue_family_index(QueueFamily::Graphics)?;
         let transfer_index = physical_device.get_queue_family_index(QueueFamily::Transfer)?;
 
-
         let (image_sharing_mode, concurrent_queue_families) = 
             if multiple_queue_family_usage {
                 (vk::SharingMode::CONCURRENT, vec![graphics_index, transfer_index])
@@ -205,17 +204,20 @@ impl SwapchainBuilder {
     }
 
     fn init_swapchain_create_info(&mut self) -> Result<(), VulkanError> {
-        let surface = self.surface.take()?;
+        let surface = self.surface.get()?;
         let optimal_image_count = self.optimal_image_count.take();
         let image_format = self.image_format.take();
         let image_extent = self.image_extent.take();
         let image_sharing_mode = self.image_sharing_mode.take();
-        let concurrent_queue_families = self.concurrent_queue_families.take();
+        // Dereferencing `swapchain_create_info` gets rid of lifetime information,
+        // but it depends on memory owned by `self.concurrent_queue_families` after return,
+        // so it cannot be taken.
+        let concurrent_queue_families = self.concurrent_queue_families.get();
         let present_mode = self.present_mode.take();
         let surface_properties = self.surface_properties.get();
 
         let swapchain_create_info_builder = vk::SwapchainCreateInfoKHR::builder()
-            .surface(**surface)
+            .surface(***surface)
             .min_image_count(optimal_image_count)
             .image_format(image_format.format)
             .image_color_space(image_format.color_space)

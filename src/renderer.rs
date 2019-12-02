@@ -55,7 +55,8 @@ impl Renderer {
             .physical_device(Rc::clone(&physical_device))
             .logical_device(Rc::clone(&logical_device))
             .surface(Rc::clone(&surface))
-            .vsync(false);
+            .vsync(false)
+            .build()?;
 
         Ok(Renderer {
             vulkan_state
