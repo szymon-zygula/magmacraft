@@ -51,10 +51,11 @@ impl Renderer {
             .queue_families(&queue_families)
             .build()?);
 
-        let _swapchain = vulkan::swapchain::Swapchain::new(
-            Rc::clone(&physical_device),
-            Rc::clone(&logical_device),
-            Rc::clone(&surface), true);
+        let _swapchain = vulkan::swapchain::Swapchain::builder()
+            .physical_device(Rc::clone(&physical_device))
+            .logical_device(Rc::clone(&logical_device))
+            .surface(Rc::clone(&surface))
+            .vsync(false);
 
         Ok(Renderer {
             vulkan_state
