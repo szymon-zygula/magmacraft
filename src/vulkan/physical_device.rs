@@ -16,6 +16,7 @@ use crate::{
     vulkan::{
         self,
         VulkanError,
+        VulkanResult,
         state::VulkanState
     }
 };
@@ -34,7 +35,13 @@ impl PhysicalDevice {
         }
     }
 
-    pub fn get_queue_family_index(&self, queue_family: QueueFamily) -> Result<QueueFamilyIndex, VulkanError> {
+    pub fn get_handle(&self) -> vk::PhysicalDevice {
+        self.vk_physical_device
+    }
+
+    pub fn get_queue_family_index(
+        &self, queue_family: QueueFamily
+    ) -> VulkanResult<QueueFamilyIndex> {
         let indice = self.queue_family_indices.get_index(queue_family);
         indice.ok_or(VulkanError::QueueFamilyNotSupported {queue_family})
     }
@@ -48,35 +55,33 @@ impl PhysicalDevice {
     }
 
     pub fn get_surface_properties(
-        &self,
-        surface: &vulkan::surface::Surface
-    ) -> Result<PhysicalDeviceSurfaceProperties, VulkanError> {
+        &self, surface: &vulkan::surface::Surface
+    ) -> VulkanResult<PhysicalDeviceSurfaceProperties> {
         let surface_loader = self.vulkan_state.get_surface_loader();
 
         let capabilities = unsafe {
-            surface_loader.get_physical_device_surface_capabilities(self.vk_physical_device, **surface)
-        }.map_err(Self::surface_properties_error_mapping)?;
+            surface_loader.get_physical_device_surface_capabilities(
+                self.vk_physical_device, surface.get_handle())
+                .map_err(|result| VulkanError::PhysicalDevicePropertiesError {result})?
+        };
 
         let formats = unsafe {
-            surface_loader.get_physical_device_surface_formats(self.vk_physical_device, **surface)
-        }.map_err(Self::surface_properties_error_mapping)?;
+            surface_loader.get_physical_device_surface_formats(
+                self.vk_physical_device, surface.get_handle())
+                .map_err(|result| VulkanError::PhysicalDevicePropertiesError {result})?
+        };
 
         let present_modes = unsafe {
-            surface_loader.get_physical_device_surface_present_modes(self.vk_physical_device, **surface)
-        }.map_err(Self::surface_properties_error_mapping)?;
+            surface_loader.get_physical_device_surface_present_modes(
+                self.vk_physical_device, surface.get_handle())
+                .map_err(|result| VulkanError::PhysicalDevicePropertiesError {result})?
+        };
 
         Ok(PhysicalDeviceSurfaceProperties {
             capabilities,
             formats,
             present_modes
         })
-    }
-
-    fn surface_properties_error_mapping(source: vk::Result) -> VulkanError {
-        VulkanError::OperationFailed {
-            source,
-            operation: String::from("get physical device surface properties")
-        }
     }
 }
 
@@ -124,25 +129,25 @@ impl PhysicalDeviceSelector {
         self
     }
 
-    pub fn select(mut self) -> Result<PhysicalDevice, VulkanError> {
+    pub fn select(mut self) -> VulkanResult<PhysicalDevice> {
         self.get_ready_for_physical_device_creation()?;
-        self.create_physical_device()?;
+        self.create_physical_device();
 
         Ok(self.physical_device.unwrap())
     }
 
-    pub fn get_ready_for_physical_device_creation(&mut self) -> Result<(), VulkanError> {
+    pub fn get_ready_for_physical_device_creation(&mut self) -> VulkanResult<()> {
         self.init_available_devices()?;
         self.select_suitable_device()?;
 
         Ok(())
     }
 
-    fn init_available_devices(&mut self) -> Result<(), VulkanError> {
+    fn init_available_devices(&mut self) -> VulkanResult<()> {
         let devices = unsafe { self.vulkan_state
-            .get()?.get_instance()
+            .get_instance()
             .enumerate_physical_devices()
-            .map_err(VulkanError::operation_failed_mapping("enumerate physical devices"))?
+            .map_err(|result| VulkanError::EnumeratePhysicalDevicesError {result})?
         };
 
         self.devices.set(devices);
@@ -150,16 +155,16 @@ impl PhysicalDeviceSelector {
         Ok(())
     }
 
-    fn select_suitable_device(&mut self) -> Result<(), VulkanError> {
-        for device in self.devices.get() {
+    fn select_suitable_device(&mut self) -> VulkanResult<()> {
+        for device in self.devices.as_ref() {
             if self.is_device_suitable(*device)? {
                 self.selected_device.set(*device);
-                let queue_family_indices = self.get_queue_family_indices(*device)?;
+                let queue_family_indices = self.get_queue_family_indices(*device);
                 self.queue_family_indices.set(queue_family_indices);
             }
 
             // If selected device is a discrete GPU, it's good enough
-            if self.is_device_discrete(*device)? {
+            if self.is_device_discrete(*device) {
                 return Ok(());
             }
         }
@@ -167,48 +172,39 @@ impl PhysicalDeviceSelector {
         Ok(())
     }
 
-    fn is_device_suitable(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
+    fn is_device_suitable(&self, device: vk::PhysicalDevice) -> VulkanResult<bool> {
         let is_suitable =
-            self.are_required_queue_families_supported(device)? &&
+            self.are_required_queue_families_supported(device) &&
             self.are_required_extensions_supported(device)?;
 
         Ok(is_suitable)
     }
 
-    fn are_required_queue_families_supported(
-        &self,
-        device: vk::PhysicalDevice
-    ) -> Result<bool, VulkanError> {
-        let queue_family_indices = self.get_queue_family_indices(device)?;
-        Ok(queue_family_indices.does_support_families(self.required_queue_families.get()?))
+    fn are_required_queue_families_supported(&self, device: vk::PhysicalDevice) -> bool {
+        let queue_family_indices = self.get_queue_family_indices(device);
+        queue_family_indices.does_support_families(&self.required_queue_families)
     }
 
-    fn get_queue_family_indices(
-        &self,
-        device: vk::PhysicalDevice
-    ) -> Result<QueueFamilyIndices, VulkanError> {
-        let queue_families = self.get_device_queue_families(device)?;
+    fn get_queue_family_indices(&self, device: vk::PhysicalDevice) -> QueueFamilyIndices {
+        let queue_families = self.get_device_queue_families(device);
 
-        Ok(QueueFamilyIndices::from_properties(
+        QueueFamilyIndices::from_properties(
             queue_families,
             device,
-            Some(self.compatible_surface.get()?),
-        ))
+            Some(&self.compatible_surface),
+        )
     }
 
     fn get_device_queue_families(
-        &self,
-        device: vk::PhysicalDevice
-    ) -> Result<Vec<vk::QueueFamilyProperties>, VulkanError> {
-        let queue_family_properties = unsafe {
-            self.vulkan_state.get()?.get_instance()
+        &self, device: vk::PhysicalDevice
+    ) -> Vec<vk::QueueFamilyProperties> {
+        unsafe {
+            self.vulkan_state.get_instance()
                 .get_physical_device_queue_family_properties(device)
-        };
-
-        Ok(queue_family_properties)
+        }
     }
 
-    fn are_required_extensions_supported(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
+    fn are_required_extensions_supported(&self, device: vk::PhysicalDevice) -> VulkanResult<bool> {
         let device_extension_properties = self.get_device_extensions_properties(device)?;
 
         for required_extension in self.required_extensions.get_strings() {
@@ -223,11 +219,11 @@ impl PhysicalDeviceSelector {
     fn get_device_extensions_properties(
         &self,
         device: vk::PhysicalDevice
-    ) -> Result<Vec<vk::ExtensionProperties>, VulkanError> {
+    ) -> VulkanResult<Vec<vk::ExtensionProperties>> {
         let extension_properties = unsafe {
-            self.vulkan_state.get()?.get_instance()
+            self.vulkan_state.get_instance()
                 .enumerate_device_extension_properties(device)
-                .map_err(VulkanError::operation_failed_mapping("enumerate physical device extensions"))?
+                .map_err(|result| VulkanError::EnumeratePhysicalDeviceExtensionsError {result})?
         };
 
         Ok(extension_properties)
@@ -239,9 +235,11 @@ impl PhysicalDeviceSelector {
     ) -> bool {
         let mut found = false;
         for extension_properties in device_extension_properties {
-            let device_extension_name = unsafe { std::ffi::CStr::from_ptr(
-                &extension_properties.extension_name as *const std::os::raw::c_char
-            )};
+            let device_extension_name = unsafe {
+                let extension_name_pointer =
+                    &extension_properties.extension_name as *const std::os::raw::c_char;
+                std::ffi::CStr::from_ptr(extension_name_pointer)
+            };
 
             if device_extension_name == required_extension_name {
                 found = true;
@@ -252,42 +250,37 @@ impl PhysicalDeviceSelector {
         found
     }
 
-    fn is_device_discrete(&self, device: vk::PhysicalDevice) -> Result<bool, VulkanError> {
-        let properties = self.get_device_properties(device)?;
+    fn is_device_discrete(&self, device: vk::PhysicalDevice) -> bool {
+        let properties = self.get_device_properties(device);
 
-        Ok(properties.device_type == vk::PhysicalDeviceType::DISCRETE_GPU)
+        properties.device_type == vk::PhysicalDeviceType::DISCRETE_GPU
     }
 
-    fn get_device_properties(
-        &self,
-        device: vk::PhysicalDevice
-    ) -> Result<vk::PhysicalDeviceProperties, VulkanError> {
+    fn get_device_properties(&self, device: vk::PhysicalDevice) -> vk::PhysicalDeviceProperties {
         let properties = unsafe {
-            self.vulkan_state.get()?.get_instance()
+            self.vulkan_state.get_instance()
                 .get_physical_device_properties(device)
         };
 
-        Ok(properties)
+        properties
     }
 
-    fn get_device_features(&self, device: vk::PhysicalDevice) -> Result<vk::PhysicalDeviceFeatures, VulkanError> {
+    fn get_device_features(&self, device: vk::PhysicalDevice) -> vk::PhysicalDeviceFeatures {
         let features = unsafe {
-            self.vulkan_state.get()?.get_instance()
+            self.vulkan_state.get_instance()
                 .get_physical_device_features(device)
         };
 
-        Ok(features)
+        features
     }
 
-    fn create_physical_device(&mut self) -> Result<(), VulkanError> {
+    fn create_physical_device(&mut self) {
         self.physical_device.set(PhysicalDevice {
-            vulkan_state: Rc::clone(self.vulkan_state.get()?),
+            vulkan_state: Rc::clone(&self.vulkan_state),
             vk_physical_device: self.selected_device.take(),
             queue_family_indices: self.queue_family_indices.take(),
             requested_extensions: self.required_extensions.clone()
         });
-
-        Ok(())
     }
 }
 
@@ -337,7 +330,11 @@ impl QueueFamilyIndices {
         };
 
         for (i, queue_family) in families.iter().enumerate() {
-            indices.update_family_support(physical_device, queue_family.queue_flags, i as QueueFamilyIndex, surface);
+            indices.update_family_support(
+                physical_device,
+                queue_family.queue_flags,
+                i as QueueFamilyIndex,
+                surface);
         }
 
         indices

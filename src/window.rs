@@ -10,9 +10,10 @@ use crate::{
 
 custom_error!{pub WindowError
     GlfwInitializationError { source: glfw::InitError } = "failed to initialize GLFW",
-    CreateError = "failed to create GLFW window",
-    BuildError {source: BuilderError} = "failed to build GLFW window: {source}"
+    CreateError = "failed to create GLFW window"
 }
+
+type WindowResult<T> = Result<T, WindowError>;
 
 pub struct Window {
     glfw_instance: glfw::Glfw,
@@ -85,14 +86,14 @@ impl WindowBuilder {
         self
     }
 
-    pub fn build(mut self) -> Result<Window, WindowError> {
+    pub fn build(mut self) -> WindowResult<Window> {
         self.get_ready_for_creation()?;
         self.create_window();
 
         Ok(self.window.unwrap())
     }
 
-    fn get_ready_for_creation(&mut self) -> Result<(), WindowError> {
+    fn get_ready_for_creation(&mut self) -> WindowResult<()> {
         self.init_glfw_instance()?;
         self.set_window_hints();
         self.init_glfw_window_and_receiver()?;
@@ -100,27 +101,24 @@ impl WindowBuilder {
         Ok(())
     }
 
-    fn init_glfw_instance(&mut self) -> Result<(), WindowError> {
+    fn init_glfw_instance(&mut self) -> WindowResult<()> {
         self.glfw_instance.set(glfw::init(glfw::FAIL_ON_ERRORS)?);
         Ok(())
     }
 
     fn set_window_hints(&mut self) {
-        let instance = self.glfw_instance.get_mut();
-
-        instance.window_hint(
+        self.glfw_instance.window_hint(
             glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
-        instance.window_hint(
+        self.glfw_instance.window_hint(
             glfw::WindowHint::Resizable(false));
     }
 
-    fn init_glfw_window_and_receiver(&mut self) -> Result<(), WindowError> {
-        let width = self.size.get()?.width;
-        let height = self.size.get()?.height;
-        let title = self.title.get()?;
+    fn init_glfw_window_and_receiver(&mut self) -> WindowResult<()> {
+        let width = self.size.width;
+        let height = self.size.height;
 
-        let window_creation = self.glfw_instance.get()
-            .create_window(width, height, title, glfw::WindowMode::Windowed);
+        let window_creation = self.glfw_instance
+            .create_window(width, height, &self.title, glfw::WindowMode::Windowed);
 
         let (glfw_window, event_receiver) = match window_creation {
             Some(window_and_receiver) => window_and_receiver,
@@ -134,7 +132,7 @@ impl WindowBuilder {
     }
 
     fn set_window_options(&mut self) {
-        self.glfw_window.get_mut().set_key_polling(true);
+        self.glfw_window.as_mut().set_key_polling(true);
     }
 
     fn create_window(&mut self) {

@@ -5,6 +5,7 @@ use ash::{self, vk};
 use crate::{
     vulkan::{
         self,
+        VulkanResult,
         VulkanError
     }
 };
@@ -17,12 +18,12 @@ pub struct DebugMessenger {
 }
 
 impl DebugMessenger {
-    pub fn new(debug_utils_loader: Rc<ash::extensions::ext::DebugUtils>, instance: Rc<vulkan::instance::Instance>) -> Result<Self, VulkanError> {
+    pub fn new(debug_utils_loader: Rc<ash::extensions::ext::DebugUtils>, instance: Rc<vulkan::instance::Instance>) -> VulkanResult<Self> {
         let debug_messenger_create_info = Self::get_create_info();
 
         let vk_debug_messenger = unsafe { debug_utils_loader
             .create_debug_utils_messenger(&debug_messenger_create_info, None)
-            .map_err(VulkanError::operation_failed_mapping("create debug messenger"))?
+            .map_err(|result| VulkanError::CreateDebugMessengerError {result})?
         };
 
         Ok(DebugMessenger {

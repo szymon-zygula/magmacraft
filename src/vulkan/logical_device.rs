@@ -15,6 +15,7 @@ use crate::{
     builder::*,
     vulkan::{
         VulkanError,
+        VulkanResult,
         state::VulkanState,
         physical_device::{
             PhysicalDevice,
@@ -37,6 +38,10 @@ impl LogicalDevice {
         LogicalDeviceBuilder {
             ..Default::default()
         }
+    }
+
+    pub fn get_handle(&self) -> vk::Device {
+        self.vk_logical_device.handle()
     }
 
     pub fn get_swapchain_loader(&self) -> Rc<ash::extensions::khr::Swapchain> {
@@ -94,27 +99,27 @@ impl LogicalDeviceBuilder {
         self
     }
 
-    pub fn build(mut self) -> Result<LogicalDevice, VulkanError> {
+    pub fn build(mut self) -> VulkanResult<LogicalDevice> {
         self.get_ready_for_creation()?;
-        self.create_logical_device()?;
+        self.create_logical_device();
 
         Ok(self.logical_device.unwrap())
     }
 
-    fn get_ready_for_creation(&mut self) -> Result<(), VulkanError> {
+    fn get_ready_for_creation(&mut self) -> VulkanResult<()> {
         self.init_unique_queue_family_indices()?;
-        self.init_queue_create_infos()?;
-        self.init_device_extensions()?;
+        self.init_queue_create_infos();
+        self.init_device_extensions();
         self.init_logical_device_create_info();
         self.init_vk_logical_device()?;
-        self.init_swapchain_loader()?;
+        self.init_swapchain_loader();
 
         Ok(())
     }
 
-    fn init_unique_queue_family_indices(&mut self) -> Result<(), VulkanError> {
+    fn init_unique_queue_family_indices(&mut self) -> VulkanResult<()> {
         let mut unique_queue_family_indices = HashSet::new();
-        for queue_family in self.queue_families.get()? {
+        for queue_family in &*self.queue_families {
             self.insert_queue_family_index_into_hashset(
                 *queue_family, &mut unique_queue_family_indices
             )?;
@@ -128,19 +133,18 @@ impl LogicalDeviceBuilder {
     }
 
     fn insert_queue_family_index_into_hashset(
-        &self, queue_family: QueueFamily,
-        hashset: &mut HashSet<QueueFamilyIndex>
-    ) -> Result<(), VulkanError> {
-        let index = self.physical_device.get()?
-            .get_queue_family_index(queue_family)?;
+        &self, queue_family: QueueFamily, hashset: &mut HashSet<QueueFamilyIndex>
+    ) -> VulkanResult<()> {
+        let index = self.physical_device.get_queue_family_index(queue_family)?;
         hashset.insert(index);
 
         Ok(())
     }
 
-    fn init_queue_create_infos(&mut self) -> Result<(), VulkanError> {
-        let mut queue_create_infos = Vec::with_capacity(self.unique_queue_family_indices.get().len());
-        for queue_family_index in self.unique_queue_family_indices.get() {
+    fn init_queue_create_infos(&mut self) {
+        let mut queue_create_infos = Vec::with_capacity(self.unique_queue_family_indices.len());
+
+        for queue_family_index in &*self.unique_queue_family_indices {
             let builder = vk::DeviceQueueCreateInfo::builder()
                 .queue_family_index(*queue_family_index)
                 .queue_priorities(&Self::DEFAULT_QUEUE_PRIORITIES);
@@ -149,34 +153,29 @@ impl LogicalDeviceBuilder {
         }
 
         self.queue_create_infos.set(queue_create_infos);
-
-        Ok(())
     }
 
-    fn init_device_extensions(&mut self) -> Result<(), VulkanError> {
-        let device_extensions = self.physical_device.get()?.get_requested_extensions();
+    fn init_device_extensions(&mut self) {
+        let device_extensions = self.physical_device.get_requested_extensions();
         self.device_extensions.set(device_extensions.clone());
-
-        Ok(())
     }
 
     fn init_logical_device_create_info(&mut self) {
         let builder = vk::DeviceCreateInfo::builder()
-            .queue_create_infos(self.queue_create_infos.get().as_slice())
-            .enabled_extension_names(self.device_extensions.get().get_pointers());
+            .queue_create_infos(self.queue_create_infos.as_slice())
+            .enabled_extension_names(self.device_extensions.get_pointers());
 
         self.logical_device_create_info.set(*builder);
     }
 
-    fn init_vk_logical_device(&mut self) -> Result<(), VulkanError> {
-        let physical_device = self.physical_device.get()?;
-        let vk_instance = &*self.vulkan_state.get()?.get_instance();
+    fn init_vk_logical_device(&mut self) -> VulkanResult<()> {
+        let vk_instance = self.vulkan_state.get_instance();
         let vk_logical_device = unsafe {
             vk_instance.create_device(
-                ***physical_device,
-                &*self.logical_device_create_info.get(),
+                self.physical_device.get_handle(),
+                &self.logical_device_create_info,
                 None
-            ).map_err(VulkanError::operation_failed_mapping("create logical device"))?
+            ).map_err(|result| VulkanError::LogicalDeviceCreateError {result})?
         };
 
         self.vk_logical_device.set(vk_logical_device);
@@ -184,22 +183,20 @@ impl LogicalDeviceBuilder {
         Ok(())
     }
 
-    fn init_swapchain_loader(&mut self) -> Result<(), VulkanError> {
-        let vk_instance = self.vulkan_state.get()?.get_instance();
-        let vk_logical_device = self.vk_logical_device.get();
+    fn init_swapchain_loader(&mut self) {
+        let vk_instance = self.vulkan_state.get_instance();
         let swapchain_loader =
-            ash::extensions::khr::Swapchain::new(&**vk_instance, vk_logical_device); 
+            ash::extensions::khr::Swapchain::new(
+                vk_instance.get_handle(), self.vk_logical_device.as_ref());
+
         self.swapchain_loader.set(swapchain_loader);
-        Ok(())
     }
 
-    fn create_logical_device(&mut self) -> Result<(), VulkanError> {
+    fn create_logical_device(&mut self) {
         self.logical_device.set(LogicalDevice {
             vk_logical_device: self.vk_logical_device.take(),
             swapchain_loader: Rc::new(self.swapchain_loader.take()),
-            _physical_device: Rc::clone(self.physical_device.get()?)
+            _physical_device: Rc::clone(&self.physical_device)
         });
-
-        Ok(())
     }
 }

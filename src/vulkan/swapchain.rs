@@ -7,6 +7,7 @@ use crate::{
     builder::*,
     vulkan::{
         VulkanError,
+        VulkanResult,
         physical_device::{
             PhysicalDevice,
             PhysicalDeviceSurfaceProperties,
@@ -87,107 +88,89 @@ impl SwapchainBuilder {
         self
     }
 
-    pub fn build(mut self) -> Result<Swapchain, VulkanError> {
+    pub fn build(mut self) -> VulkanResult<Swapchain> {
         self.get_ready_for_creation()?;
         self.create_swapchain()?;
 
         Ok(self.swapchain.unwrap())
     }
 
-    fn get_ready_for_creation(&mut self) -> Result<(), VulkanError> {
+    fn get_ready_for_creation(&mut self) -> VulkanResult<()> {
         self.init_surface_properties()?;
         self.init_image_format();
-        self.init_image_extent()?;
-        self.init_present_mode()?;
-        self.init_optimal_image_count()?;
+        self.init_image_extent();
+        self.init_present_mode();
+        self.init_optimal_image_count();
         self.init_image_sharing_info()?;
-        self.init_swapchain_create_info()?;
+        self.init_swapchain_create_info();
 
         Ok(())
     }
 
-    fn init_surface_properties(&mut self) -> Result<(), VulkanError> {
-        let surface = self.surface.get()?;
-        let physical_device = self.physical_device.get()?;
-        let surface_properties = physical_device.get_surface_properties(surface)?;
+    fn init_surface_properties(&mut self) -> VulkanResult<()> {
+        let surface_properties = self.physical_device.get_surface_properties(&self.surface)?;
         self.surface_properties.set(surface_properties);
 
         Ok(())
     }
 
     fn init_image_format(&mut self) {
-        let surface_properties = self.surface_properties.get();
-        let image_format = surface_properties.formats[0];
+        let image_format = self.surface_properties.formats[0];
         // TODO: select this based on gamma and other things
         self.image_format.set(image_format);
     }
 
-    fn init_image_extent(&mut self) -> Result<(), VulkanError> {
-        let surface_properties = self.surface_properties.get();
-        let capabilities = surface_properties.capabilities;
+    fn init_image_extent(&mut self) {
+        let capabilities = self.surface_properties.capabilities;
         let current_extent = capabilities.current_extent;
 
         // TODO: support custom resolutions
         let image_extent = if Self::is_extent_undefined(&current_extent) {
-            let surface = self.surface.get()?;
-            surface.get_framebuffer_extent()
+            self.surface.get_framebuffer_extent()
         }
         else {
             current_extent
         };
 
         self.image_extent.set(image_extent);
-
-        Ok(())
     }
 
     fn is_extent_undefined(extent: &vk::Extent2D) -> bool {
         extent.width == u32::max_value()
     }
 
-    fn init_present_mode(&mut self) -> Result<(), VulkanError> {
-        let surface_properties = self.surface_properties.get();
-
-        for present_mode in &surface_properties.present_modes {
-            if self.is_present_mode_suitable(*present_mode)? {
+    fn init_present_mode(&mut self) {
+        for present_mode in &self.surface_properties.present_modes {
+            if self.is_present_mode_suitable(*present_mode) {
                 self.present_mode.set(*present_mode);
-                return Ok(());
+                return;
             }
         }
 
         self.present_mode.set(vk::PresentModeKHR::FIFO);
-        Ok(())
     }
 
-    fn is_present_mode_suitable(
-        &self, present_mode: vk::PresentModeKHR
-    ) -> Result<bool, VulkanError> {
-        let vsync = *self.vsync.get()?;
-
-        Ok(vsync && present_mode == Self::PRESENT_MODE_WITH_VSYNC ||
-        !vsync && present_mode == Self::PRESENT_MODE_WITHOUT_VSYNC)
+    fn is_present_mode_suitable(&self, present_mode: vk::PresentModeKHR) -> bool {
+        *self.vsync && present_mode == Self::PRESENT_MODE_WITH_VSYNC ||
+        !*self.vsync && present_mode == Self::PRESENT_MODE_WITHOUT_VSYNC
     }
 
-    fn init_optimal_image_count(&mut self) -> Result<(), VulkanError> {
-        let surface_properties = self.surface_properties.get();
-        let min_image_count = surface_properties.capabilities.min_image_count;
-        let max_image_count = surface_properties.capabilities.max_image_count;
-        let mut optimal_image_count =min_image_count + Self::ADDITIONAL_IMAGES_COUNT;
+    fn init_optimal_image_count(&mut self) {
+        let min_image_count = self.surface_properties.capabilities.min_image_count;
+        let max_image_count = self.surface_properties.capabilities.max_image_count;
+        let mut optimal_image_count = min_image_count + Self::ADDITIONAL_IMAGES_COUNT;
 
         if max_image_count != 0 && optimal_image_count > max_image_count {
             optimal_image_count = max_image_count;
         };
 
         self.optimal_image_count.set(optimal_image_count);
-
-        Ok(())
     }
 
-    fn init_image_sharing_info(&mut self) -> Result<(), VulkanError> {
-        let physical_device = self.physical_device.get()?;
-        let multiple_queue_family_usage = physical_device.is_transfer_queue_family_dedicated();
-        let graphics_index = physical_device.get_queue_family_index(QueueFamily::Graphics)?;
-        let transfer_index = physical_device.get_queue_family_index(QueueFamily::Transfer)?;
+    fn init_image_sharing_info(&mut self) -> VulkanResult<()> {
+        let multiple_queue_family_usage = self.physical_device.is_transfer_queue_family_dedicated();
+        let graphics_index = self.physical_device.get_queue_family_index(QueueFamily::Graphics)?;
+        let transfer_index = self.physical_device.get_queue_family_index(QueueFamily::Transfer)?;
 
         let (image_sharing_mode, concurrent_queue_families) = 
             if multiple_queue_family_usage {
@@ -203,55 +186,46 @@ impl SwapchainBuilder {
         Ok(())
     }
 
-    fn init_swapchain_create_info(&mut self) -> Result<(), VulkanError> {
-        let surface = self.surface.get()?;
-        let optimal_image_count = self.optimal_image_count.take();
-        let image_format = self.image_format.take();
-        let image_extent = self.image_extent.take();
-        let image_sharing_mode = self.image_sharing_mode.take();
+    fn init_swapchain_create_info(&mut self) {
+        let image_format = *self.image_format;
         // Dereferencing `swapchain_create_info` gets rid of lifetime information,
         // but it depends on memory owned by `self.concurrent_queue_families` after return,
         // so it cannot be taken.
-        let concurrent_queue_families = self.concurrent_queue_families.get();
-        let present_mode = self.present_mode.take();
-        let surface_properties = self.surface_properties.get();
 
         let swapchain_create_info_builder = vk::SwapchainCreateInfoKHR::builder()
-            .surface(***surface)
-            .min_image_count(optimal_image_count)
+            .surface(self.surface.get_handle())
+            .min_image_count(*self.optimal_image_count)
             .image_format(image_format.format)
             .image_color_space(image_format.color_space)
-            .image_extent(image_extent)
+            .image_extent(*self.image_extent)
             .image_array_layers(Self::IMAGE_ARRAY_LAYERS)
             .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            .image_sharing_mode(image_sharing_mode)
-            .queue_family_indices(concurrent_queue_families.as_slice())
-            .present_mode(present_mode)
-            .pre_transform(surface_properties.capabilities.current_transform)
+            .image_sharing_mode(*self.image_sharing_mode)
+            .queue_family_indices(&self.concurrent_queue_families)
+            .present_mode(*self.present_mode)
+            .pre_transform(self.surface_properties.capabilities.current_transform)
             .clipped(true)
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             // TODO: Allow swapchain recreation
             .old_swapchain(vk::SwapchainKHR::null());
 
         self.swapchain_create_info.set(*swapchain_create_info_builder);
-
-        Ok(())
     }
 
-    fn create_swapchain(&mut self) -> Result<(), VulkanError> {
-        let swapchain_loader = self.logical_device.get()?.get_swapchain_loader();
+    fn create_swapchain(&mut self) -> VulkanResult<()> {
+        let swapchain_loader = self.logical_device.get_swapchain_loader();
         let vk_swapchain = unsafe {
             swapchain_loader.create_swapchain(
-                self.swapchain_create_info.get(),
+                &self.swapchain_create_info,
                 None
-            ).map_err(VulkanError::operation_failed_mapping("create swapchain"))?
+            ).map_err(|result| VulkanError::SwapchainCreateError {result})?
         };
 
         self.swapchain.set(Swapchain {
             vk_swapchain,
             swapchain_loader: Rc::clone(&swapchain_loader),
-            _logical_device: Rc::clone(self.logical_device.get()?),
-            _surface: Rc::clone(self.surface.get()?)
+            _logical_device: Rc::clone(&self.logical_device),
+            _surface: Rc::clone(&self.surface)
         });
 
         Ok(())

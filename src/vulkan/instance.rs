@@ -13,6 +13,7 @@ use crate::{
     vulkan::{
         self,
         VulkanError,
+        VulkanResult,
         debug_utils::ValidationLayers
     }
 };
@@ -34,7 +35,13 @@ impl Instance {
     }
 
     pub fn get_raw_handle(&self) -> u64 {
-        self.get_handle().handle().as_raw()
+        self.handle().as_raw()
+    }
+}
+
+impl AsRef<ash::Instance> for Instance {
+    fn as_ref(&self) -> &ash::Instance {
+        &self.vk_instance
     }
 }
 
@@ -97,20 +104,20 @@ impl InstanceBuilder {
         self
     }
 
-    pub fn build(mut self) -> Result<Instance, VulkanError> {
+    pub fn build(mut self) -> VulkanResult<Instance> {
         self.get_ready_for_creation()?;
         self.create_instance()?;
         Ok(self.instance.unwrap())
     }
 
-    fn get_ready_for_creation(&mut self) -> Result<(), VulkanError> {
+    fn get_ready_for_creation(&mut self) -> VulkanResult<()> {
         self.init_debug_information()?;
         self.init_app_info()?;
         self.init_instance_create_info()?;
         Ok(())
     }
 
-    fn init_debug_information(&mut self) -> Result<(), VulkanError> {
+    fn init_debug_information(&mut self) -> VulkanResult<()> {
         let is_debugging = self.validation_layers.len() != 0;
         self.debug_mode.set(is_debugging);
 
@@ -122,7 +129,7 @@ impl InstanceBuilder {
         Ok(())
     }
 
-    fn check_if_validation_layers_are_available(&self) -> Result<(), VulkanError> {
+    fn check_if_validation_layers_are_available(&self) -> VulkanResult<()> {
         let properties = self.get_validation_layer_properties()?;
 
         for layer in self.validation_layers.get_strings() {
@@ -134,10 +141,10 @@ impl InstanceBuilder {
         Ok(())
     }
 
-    fn get_validation_layer_properties(&self) -> Result<Vec<vk::LayerProperties>, VulkanError> {
-        let properties = self.entry.get()?
+    fn get_validation_layer_properties(&self) -> VulkanResult<Vec<vk::LayerProperties>> {
+        let properties = self.entry
             .enumerate_instance_layer_properties()
-            .map_err(VulkanError::operation_failed_mapping("get available vaildation layers"))?;
+            .map_err(|result| VulkanError::ValidationLayersError {result})?;
 
         Ok(properties)
     }
@@ -162,37 +169,30 @@ impl InstanceBuilder {
         );
     }
 
-    fn init_app_info(&mut self) -> Result<(), VulkanError> {
-        self.c_name.set(
-            std::ffi::CString::new(
-                self.name.get()?
-                .as_bytes()
-        )?);
-
-        let version = *self.version.get()?;
+    fn init_app_info(&mut self) -> VulkanResult<()> {
+        let c_name = std::ffi::CString::new(self.name.as_bytes())?;
+        self.c_name.set(c_name);
 
         self.app_info.set(*vk::ApplicationInfo::builder()
             .api_version(vk_make_version!(1, 0, 0))
-            .application_name(&self.c_name.get())
-            .application_version(version)
-            .engine_name(&self.c_name.get())
-            .engine_version(version));
+            .application_name(&self.c_name)
+            .application_version(*self.version)
+            .engine_name(&self.c_name)
+            .engine_version(*self.version));
 
         Ok(())
     }
 
-    fn init_instance_create_info(&mut self) -> Result<(), VulkanError> {
+    fn init_instance_create_info(&mut self) -> VulkanResult<()> {
         let mut instance_create_info = vk::InstanceCreateInfo::builder()
-            .application_info(&self.app_info.get())
+            .application_info(&self.app_info)
             .enabled_extension_names(self.extensions.get_pointers())
             .enabled_layer_names(self.validation_layers.get_pointers())
             .flags(vk::InstanceCreateFlags::empty());
 
-        if *self.debug_mode.get() {
+        if *self.debug_mode {
             instance_create_info = instance_create_info
-                .push_next(
-                    self.debug_messenger_create_info.get_mut()
-                );
+                .push_next(self.debug_messenger_create_info.as_mut());
         }
 
         self.instance_create_info.set(*instance_create_info);
@@ -200,10 +200,10 @@ impl InstanceBuilder {
         Ok(())
     }
 
-    fn create_instance(&mut self) -> Result<(), VulkanError> {
+    fn create_instance(&mut self) -> VulkanResult<()> {
         let vk_instance = unsafe {
-            self.entry.get()?.create_instance(
-                self.instance_create_info.get(),
+            self.entry.create_instance(
+                &self.instance_create_info,
                 None
             )?
         };

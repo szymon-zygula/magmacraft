@@ -1,56 +1,60 @@
-custom_error::custom_error!(pub BuilderError
-    RequiredFieldNotSpecified = "required field not specified"
-);
+macro_rules! declare_builder_field {
+    ($name:ident) => {
+        #[derive(Debug)]
+        pub struct $name<T> (Option<T>);
 
-#[derive(Debug)]
-pub struct BuilderRequirement<T> (Option<T>);
+        impl<T> $name<T> {
+            const ERROR_MESSAGE: &'static str =
+                "field not set or taken before use";
 
-impl<T> BuilderRequirement<T> {
-    pub fn set(&mut self, owned: T) {
-        self.0 = Some(owned)
-    }
+            pub fn set(&mut self, owned: T) {
+                self.0 = Some(owned);
+            }
 
-    pub fn get(&self) -> Result<&T, BuilderError> {
-        Ok(self.0.as_ref().ok_or(BuilderError::RequiredFieldNotSpecified)?)
-    }
+            pub fn take(&mut self) -> T {
+                let error_message = format!("{} {}", Self::ERROR_MESSAGE, stringify!($name));
+                self.0.take().expect(&error_message)
+            }
+        }
 
-    pub fn get_mut(&mut self) -> Result<&mut T, BuilderError> {
-        Ok(self.0.as_mut().ok_or(BuilderError::RequiredFieldNotSpecified)?)
-    }
+        impl<T> std::ops::Deref for $name<T> {
+            type Target = T;
 
-    pub fn take(&mut self) -> Result<T, BuilderError> {
-        Ok(self.0.take().ok_or(BuilderError::RequiredFieldNotSpecified)?)
+            fn deref(&self) -> &Self::Target {
+                self.as_ref()
+            }
+        }
+
+        impl<T> std::ops::DerefMut for $name<T> {
+            fn deref_mut(&mut self) -> &mut T {
+                self.as_mut()
+            }
+        }
+
+        impl<T> AsRef<T> for $name<T> {
+            fn as_ref(&self) -> &T {
+                let error_message = format!("{} {}", Self::ERROR_MESSAGE, stringify!($name));
+                self.0.as_ref().expect(&error_message)
+            }
+        }
+
+        impl<T> AsMut<T> for $name<T> {
+            fn as_mut(&mut self) -> &mut T {
+                let error_message = format!("{} {}", Self::ERROR_MESSAGE, stringify!($name));
+                self.0.as_mut().expect(&error_message)
+            }
+        }
+
+        impl<T> Default for $name<T> {
+            fn default() -> Self {
+                Self(None)
+            }
+        }
     }
 }
 
-impl<T> Default for BuilderRequirement<T> {
-    fn default() -> Self { Self(None) }
-}
-
-#[derive(Debug)]
-pub struct BuilderInternal<T> (Option<T>);
-
-impl<T> BuilderInternal<T> {
-    pub fn set(&mut self, owned: T) {
-        self.0 = Some(owned)
-    }
-
-    pub fn get(&self) -> &T {
-        self.0.as_ref().expect("internal builder field not set or moved out before use")
-    }
-
-    pub fn get_mut(&mut self) -> &mut T {
-        self.0.as_mut().expect("internal builder field not set or moved out before use")
-    }
-
-    pub fn take(&mut self) -> T {
-        self.0.take().expect("internal builder field not set before moving out")
-    }
-}
-
-impl<T> Default for BuilderInternal<T> {
-    fn default() -> Self { Self(None) }
-}
+declare_builder_field!(BuilderInternal);
+declare_builder_field!(BuilderRequirement);
 
 #[derive(Debug)]
 pub struct BuilderProduct<T> (Option<T>);

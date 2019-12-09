@@ -1,37 +1,38 @@
 use custom_error::custom_error;
 use ash::{self, vk};
-use crate::builder::BuilderError;
 
 custom_error!{pub VulkanError
-    OperationFailed {source: vk::Result, operation: String} =
-        "operation failed: {operation} ({source})",
     LibraryLoadError {source: ash::LoadingError} =
         "failed to load Vulkan library: {source}",
+    CreateDebugMessengerError {result: vk::Result} =
+        "failed to create debug messenger: {result}",
     ValidationLayersNotAvailable =
         "specified validation layers are not available",
+    ValidationLayersError {result: vk::Result} =
+        "failed to get a list of validation layers: {result}",
     InstanceCreateError {source: ash::InstanceError} =
         "failed to create vulkan instance: {source}",
-    VulkanBuildError {source: BuilderError} =
-        "failed to build a Vulkan structure",
     InstanceExtensionsCreationError {source: std::ffi::NulError} =
-        "failed to create C-like nul-terminated string: {source}",
-    SuitableDeviceNotFound =
-        "failed to find a physical device fulfilling all criteria",
+        "failed to create C-like nul-terminated string (invalid extension name): {source}",
+    EnumeratePhysicalDevicesError {result: vk::Result}=
+        "failed to enumerate GPUs",
+    PhysicalDevicePropertiesError {result: vk::Result}=
+        "failed to get vulkan physical device properties",
     QueueFamilyNotSupported {queue_family: physical_device::QueueFamily} =
-        "physical device was asked about an index of a queue family that it does not support"
+        "physical device was asked about an index of a queue family that it does not support",
+    EnumeratePhysicalDeviceExtensionsError {result: vk::Result} = 
+        "failed to enumerate physical device extensions",
+    PhysicalDeviceSelectError =
+        "failed to select a GPU",
+    SuitableDeviceNotFound =
+        "failed to find a GPU fulfilling all criteria",
+    LogicalDeviceCreateError {result: vk::Result} =
+        "failed to create vulkan device: {result}",
+    SwapchainCreateError {result: vk::Result} =
+        "failed to create vulkan swapchain: {result}"
 }
 
-impl VulkanError {
-    fn operation_failed_mapping(operation: &str) -> impl FnOnce(vk::Result) -> VulkanError {
-        let operation = String::from(operation);
-        |error| {
-            VulkanError::OperationFailed {
-                source: error,
-                operation
-            }
-        }
-    }
-}
+type VulkanResult<T> = Result<T, VulkanError>;
 
 pub mod state;
 pub mod instance;
