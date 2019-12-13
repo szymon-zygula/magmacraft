@@ -29,7 +29,11 @@ custom_error!{pub VulkanError
     LogicalDeviceCreateError {result: vk::Result} =
         "failed to create vulkan device: {result}",
     SwapchainCreateError {result: vk::Result} =
-        "failed to create vulkan swapchain: {result}"
+        "failed to create vulkan swapchain: {result}",
+    ShaderCreateError {result: vk::Result} =
+        "failed to create shader: {result}",
+    ShaderOpenFileError {error: std::io::Error} =
+        "failed to open shader file: {error}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;
@@ -41,3 +45,4 @@ pub mod physical_device;
 pub mod logical_device;
 pub mod surface;
 pub mod swapchain;
+pub mod shader;
