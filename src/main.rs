@@ -1,5 +1,6 @@
 #[macro_use]
 mod c_string_collection;
+mod double_type_buffer;
 mod window;
 mod renderer;
 mod vulkan;
