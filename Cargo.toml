@@ -6,6 +6,6 @@ edition = "2018"
 
 [dependencies]
 custom_error = "1.7.1"
-glfw = { version = "0.32.0", features = ["vulkan", "image"] }
+glfw = { version = "0.34.0", features = ["vulkan", "image"] }
 ash = "0.29.0"
-vk-mem = "0.1.8"
+vk-mem = "0.2.0"
