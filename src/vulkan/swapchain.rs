@@ -20,6 +20,7 @@ use crate::{
 
 pub struct Swapchain {
     vk_swapchain: vk::SwapchainKHR,
+    surface_format: vk::SurfaceFormatKHR,
     swapchain_loader: Rc<ash::extensions::khr::Swapchain>,
     // lifetime extenders
     _logical_device: Rc<LogicalDevice>,
@@ -31,6 +32,14 @@ impl Swapchain {
         SwapchainBuilder {
             ..Default::default()
         }
+    }
+
+    pub fn image_format(&self) -> vk::Format {
+        self.surface_format.format
+    }
+
+    pub fn image_color_space(&self) -> vk::ColorSpaceKHR {
+        self.surface_format.color_space
     }
 }
 
@@ -51,7 +60,7 @@ pub struct SwapchainBuilder {
 
     surface_properties: BuilderInternal<PhysicalDeviceSurfaceProperties>,
     image_extent: BuilderInternal<vk::Extent2D>,
-    image_format: BuilderInternal<vk::SurfaceFormatKHR>,
+    surface_format: BuilderInternal<vk::SurfaceFormatKHR>,
     present_mode: BuilderInternal<vk::PresentModeKHR>,
     optimal_image_count: BuilderInternal<u32>,
     image_sharing_mode: BuilderInternal<vk::SharingMode>,
@@ -97,7 +106,7 @@ impl SwapchainBuilder {
 
     fn get_ready_for_creation(&mut self) -> VulkanResult<()> {
         self.init_surface_properties()?;
-        self.init_image_format();
+        self.init_surface_format();
         self.init_image_extent();
         self.init_present_mode();
         self.init_optimal_image_count();
@@ -114,10 +123,10 @@ impl SwapchainBuilder {
         Ok(())
     }
 
-    fn init_image_format(&mut self) {
-        let image_format = self.surface_properties.formats[0];
+    fn init_surface_format(&mut self) {
+        let surface_format = self.surface_properties.formats[0];
         // TODO: select this based on gamma and other things
-        self.image_format.set(image_format);
+        self.surface_format.set(surface_format);
     }
 
     fn init_image_extent(&mut self) {
@@ -187,7 +196,7 @@ impl SwapchainBuilder {
     }
 
     fn init_swapchain_create_info(&mut self) {
-        let image_format = *self.image_format;
+        let surface_format = *self.surface_format;
         // Dereferencing `swapchain_create_info` gets rid of lifetime information,
         // but it depends on memory owned by `self.concurrent_queue_families` after return,
         // so it cannot be taken.
@@ -195,8 +204,8 @@ impl SwapchainBuilder {
         let swapchain_create_info_builder = vk::SwapchainCreateInfoKHR::builder()
             .surface(self.surface.get_handle())
             .min_image_count(*self.optimal_image_count)
-            .image_format(image_format.format)
-            .image_color_space(image_format.color_space)
+            .image_format(surface_format.format)
+            .image_color_space(surface_format.color_space)
             .image_extent(*self.image_extent)
             .image_array_layers(Self::IMAGE_ARRAY_LAYERS)
             .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
@@ -223,6 +232,7 @@ impl SwapchainBuilder {
 
         self.swapchain.set(Swapchain {
             vk_swapchain,
+            surface_format: self.surface_format.take(),
             swapchain_loader: Rc::clone(&swapchain_loader),
             _logical_device: Rc::clone(&self.logical_device),
             _surface: Rc::clone(&self.surface)

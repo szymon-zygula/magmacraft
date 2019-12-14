@@ -33,7 +33,9 @@ custom_error!{pub VulkanError
     ShaderCreateError {result: vk::Result} =
         "failed to create shader: {result}",
     ShaderOpenFileError {error: std::io::Error} =
-        "failed to open shader file: {error}"
+        "failed to open shader file: {error}",
+    RenderPassCreateError {result: vk::Result} =
+        "failed to create render pass: {result}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;
@@ -46,3 +48,4 @@ pub mod logical_device;
 pub mod surface;
 pub mod swapchain;
 pub mod shader;
+pub mod render_pass;
