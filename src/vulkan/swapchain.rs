@@ -21,6 +21,7 @@ use crate::{
 pub struct Swapchain {
     vk_swapchain: vk::SwapchainKHR,
     surface_format: vk::SurfaceFormatKHR,
+    extent: vk::Extent2D,
     swapchain_loader: Rc<ash::extensions::khr::Swapchain>,
     // lifetime extenders
     _logical_device: Rc<LogicalDevice>,
@@ -40,6 +41,10 @@ impl Swapchain {
 
     pub fn image_color_space(&self) -> vk::ColorSpaceKHR {
         self.surface_format.color_space
+    }
+
+    pub fn extent(&self) -> vk::Extent2D {
+        self.extent
     }
 }
 
@@ -233,6 +238,7 @@ impl SwapchainBuilder {
         self.swapchain.set(Swapchain {
             vk_swapchain,
             surface_format: self.surface_format.take(),
+            extent: self.image_extent.take(),
             swapchain_loader: Rc::clone(&swapchain_loader),
             _logical_device: Rc::clone(&self.logical_device),
             _surface: Rc::clone(&self.surface)
