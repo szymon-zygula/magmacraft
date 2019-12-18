@@ -24,6 +24,10 @@ impl RenderPass {
             ..Default::default()
         }
     }
+
+    pub fn handle(&self) -> vk::RenderPass {
+        self.vk_render_pass
+    }
 }
 
 impl Drop for RenderPass {
@@ -43,7 +47,6 @@ pub struct RenderPassBuilder {
     attachment_references: BuilderInternal<Vec<vk::AttachmentReference>>,
     subpass_descriptions: BuilderInternal<Vec<vk::SubpassDescription>>,
     subpass_dependencies: BuilderInternal<Vec<vk::SubpassDependency>>,
-
     vk_render_pass: BuilderInternal<vk::RenderPass>,
 
     render_pass: BuilderProduct<RenderPass>
