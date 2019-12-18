@@ -21,10 +21,10 @@ use crate::{
 
 macro_rules! create_shader_wrapper {
     ($name:ident, $shader_stage:expr) => {
-        struct $name (Shader);
+        pub struct $name (Shader);
 
         impl $name {
-            fn from_file(
+            pub fn from_file(
                 logical_device: Rc<LogicalDevice>,
                 file_path: &std::path::Path
             ) -> VulkanResult<Self> {
@@ -34,6 +34,12 @@ macro_rules! create_shader_wrapper {
                     Err(e) => Err(e),
                     Ok(shader) => Ok($name (shader))
                 }
+            }
+        }
+
+        impl ShaderStageBuilder for $name {
+            fn shader_stage_create_info_builder(&self) -> vk::PipelineShaderStageCreateInfoBuilder {
+                self.0.shader_stage_create_info_builder()
             }
         }
 
@@ -69,7 +75,7 @@ create_shader_wrapper!(VertexShader, vk::ShaderStageFlags::VERTEX);
 create_shader_wrapper!(FragmentShader, vk::ShaderStageFlags::FRAGMENT);
 create_shader_wrapper!(GeometryShader, vk::ShaderStageFlags::GEOMETRY);
 
-struct Shader {
+pub struct Shader {
     vk_shader_module: vk::ShaderModule,
     logical_device: Rc<LogicalDevice>,
     shader_stage: vk::ShaderStageFlags
@@ -153,10 +159,20 @@ impl Shader {
     }
 }
 
+impl ShaderStageBuilder for Shader {
+    fn shader_stage_create_info_builder(&self) -> vk::PipelineShaderStageCreateInfoBuilder {
+        self.shader_stage_create_info_builder()
+    }
+}
+
 impl Drop for Shader {
     fn drop(&mut self) {
         unsafe {
             self.logical_device.destroy_shader_module(self.vk_shader_module, None);
         }
     }
+}
+
+pub trait ShaderStageBuilder {
+    fn shader_stage_create_info_builder(&self) -> vk::PipelineShaderStageCreateInfoBuilder;
 }
