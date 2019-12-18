@@ -35,7 +35,11 @@ custom_error!{pub VulkanError
     ShaderOpenFileError {error: std::io::Error} =
         "failed to open shader file: {error}",
     RenderPassCreateError {result: vk::Result} =
-        "failed to create render pass: {result}"
+        "failed to create render pass: {result}",
+    PipelineCreateError {result: vk::Result} =
+        "failed to create pipeline: {result}",
+    PipelineLayoutCreateError {result: vk::Result} =
+        "failed to create pipeline layout: {result}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;
@@ -49,3 +53,4 @@ pub mod surface;
 pub mod swapchain;
 pub mod shader;
 pub mod render_pass;
+pub mod pipeline;

@@ -58,10 +58,24 @@ impl Renderer {
             .vsync(false)
             .build()?);
 
-        let renderpass = vulkan::render_pass::RenderPass::builder()
+        let render_pass = Rc::new(vulkan::render_pass::RenderPass::builder()
             .logical_device(Rc::clone(&logical_device))
             .swapchain(Rc::clone(&swapchain))
-            .build();
+            .build()?);
+
+        let vertex_shader = Rc::new(vulkan::shader::VertexShader::from_file(
+                Rc::clone(&logical_device), std::path::Path::new("shaders/triangle.frag.spv"))?);
+        let fragment_shader = Rc::new(vulkan::shader::FragmentShader::from_file(
+                Rc::clone(&logical_device), std::path::Path::new("shaders/triangle.frag.spv"))?);
+
+        let pipeline = vulkan::pipeline::Pipeline::builder()
+            .vertex_shader(Rc::clone(&vertex_shader))
+            .fragment_shader(Rc::clone(&fragment_shader))
+            .logical_device(Rc::clone(&logical_device))
+            .swapchain(Rc::clone(&swapchain))
+            .render_pass(Rc::clone(&render_pass))
+            .subpass(0)
+            .build()?;
 
         Ok(Renderer {
             vulkan_state
