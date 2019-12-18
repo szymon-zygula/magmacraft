@@ -30,6 +30,8 @@ custom_error!{pub VulkanError
         "failed to create vulkan device: {result}",
     SwapchainCreateError {result: vk::Result} =
         "failed to create vulkan swapchain: {result}",
+    SwapchainGetImagesError {result: vk::Result} =
+        "failed to acquire swapchain images: {result}",
     ShaderCreateError {result: vk::Result} =
         "failed to create shader: {result}",
     ShaderOpenFileError {error: std::io::Error} =
@@ -39,7 +41,9 @@ custom_error!{pub VulkanError
     PipelineCreateError {result: vk::Result} =
         "failed to create pipeline: {result}",
     PipelineLayoutCreateError {result: vk::Result} =
-        "failed to create pipeline layout: {result}"
+        "failed to create pipeline layout: {result}",
+    ImageViewCreateError {result: vk::Result} =
+        "failed to create image view: {result}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;

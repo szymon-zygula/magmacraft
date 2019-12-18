@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use ash::{
     self,
+    version::DeviceV1_0,
     vk
 };
 use crate::{
@@ -22,9 +23,11 @@ pub struct Swapchain {
     vk_swapchain: vk::SwapchainKHR,
     surface_format: vk::SurfaceFormatKHR,
     extent: vk::Extent2D,
+    images: Vec<vk::Image>,
+    image_views: Vec<vk::ImageView>,
     swapchain_loader: Rc<ash::extensions::khr::Swapchain>,
+    logical_device: Rc<LogicalDevice>,
     // lifetime extenders
-    _logical_device: Rc<LogicalDevice>,
     _surface: Rc<Surface>
 }
 
@@ -46,12 +49,22 @@ impl Swapchain {
     pub fn extent(&self) -> vk::Extent2D {
         self.extent
     }
+
+    pub fn image_views(&self) -> &Vec<vk::ImageView> {
+        &self.image_views
+    }
 }
 
 impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
             self.swapchain_loader.destroy_swapchain(self.vk_swapchain, None);
+        }
+
+        for image_view in self.image_views.as_slice() {
+            unsafe {
+                self.logical_device.destroy_image_view(*image_view, None);
+            }
         }
     }
 }
@@ -71,6 +84,9 @@ pub struct SwapchainBuilder {
     image_sharing_mode: BuilderInternal<vk::SharingMode>,
     concurrent_queue_families: BuilderInternal<Vec<u32>>,
     swapchain_create_info: BuilderInternal<vk::SwapchainCreateInfoKHR>,
+    vk_swapchain: BuilderInternal<vk::SwapchainKHR>,
+    images: BuilderInternal<Vec<vk::Image>>,
+    image_views: BuilderInternal<Vec<vk::ImageView>>,
 
     swapchain: BuilderProduct<Swapchain>
 }
@@ -104,7 +120,7 @@ impl SwapchainBuilder {
 
     pub fn build(mut self) -> VulkanResult<Swapchain> {
         self.get_ready_for_creation()?;
-        self.create_swapchain()?;
+        self.create_swapchain();
 
         Ok(self.swapchain.unwrap())
     }
@@ -117,6 +133,9 @@ impl SwapchainBuilder {
         self.init_optimal_image_count();
         self.init_image_sharing_info()?;
         self.init_swapchain_create_info();
+        self.init_vk_swapchain()?;
+        self.init_images()?;
+        self.init_image_views()?;
 
         Ok(())
     }
@@ -226,7 +245,7 @@ impl SwapchainBuilder {
         self.swapchain_create_info.set(*swapchain_create_info_builder);
     }
 
-    fn create_swapchain(&mut self) -> VulkanResult<()> {
+    fn init_vk_swapchain(&mut self) -> VulkanResult<()> {
         let swapchain_loader = self.logical_device.get_swapchain_loader();
         let vk_swapchain = unsafe {
             swapchain_loader.create_swapchain(
@@ -235,15 +254,85 @@ impl SwapchainBuilder {
             ).map_err(|result| VulkanError::SwapchainCreateError {result})?
         };
 
+        self.vk_swapchain.set(vk_swapchain);
+        Ok(())
+    }
+
+    fn init_images(&mut self) -> VulkanResult<()> {
+        let images = unsafe {
+            self.logical_device.get_swapchain_loader()
+                .get_swapchain_images(*self.vk_swapchain)
+        }.map_err(|result| VulkanError::SwapchainGetImagesError {result})?;
+
+        self.images.set(images);
+        Ok(())
+    }
+
+    fn init_image_views(&mut self) -> VulkanResult<()> {
+        let component_mapping = Self::image_view_component_mapping();
+        let subresource_range = Self::image_view_subresource_range();
+        let mut image_views = Vec::with_capacity(self.images.len());
+
+        for image in self.images.as_slice() {
+            let image_view = self.create_image_view(
+                *image, component_mapping, subresource_range)?;
+
+            image_views.push(image_view);
+        }
+
+        self.image_views.set(image_views);
+        Ok(())
+    }
+
+    fn image_view_component_mapping() -> vk::ComponentMapping {
+        vk::ComponentMapping::builder()
+            .r(vk::ComponentSwizzle::IDENTITY)
+            .g(vk::ComponentSwizzle::IDENTITY)
+            .b(vk::ComponentSwizzle::IDENTITY)
+            .a(vk::ComponentSwizzle::IDENTITY)
+            .build()
+    }
+
+    fn image_view_subresource_range() -> vk::ImageSubresourceRange {
+        vk::ImageSubresourceRange::builder()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1)
+            .build()
+    }
+
+    fn create_image_view(
+        &self,
+        image: vk::Image,
+        component_mapping: vk::ComponentMapping,
+        subresource_range: vk::ImageSubresourceRange
+    ) -> VulkanResult<vk::ImageView> {
+        let image_view_create_info = vk::ImageViewCreateInfo::builder()
+            .image(image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(self.surface_format.format)
+            .components(component_mapping)
+            .subresource_range(subresource_range);
+
+        let image_view = unsafe {
+            self.logical_device.create_image_view(&image_view_create_info, None)
+        }.map_err(|result| VulkanError::ImageViewCreateError {result})?;
+
+        Ok(image_view)
+    }
+
+    fn create_swapchain(&mut self) {
         self.swapchain.set(Swapchain {
-            vk_swapchain,
+            vk_swapchain: self.vk_swapchain.take(),
             surface_format: self.surface_format.take(),
             extent: self.image_extent.take(),
-            swapchain_loader: Rc::clone(&swapchain_loader),
-            _logical_device: Rc::clone(&self.logical_device),
+            images: self.images.take(),
+            image_views: self.image_views.take(),
+            swapchain_loader: Rc::clone(&self.logical_device.get_swapchain_loader()),
+            logical_device: Rc::clone(&self.logical_device),
             _surface: Rc::clone(&self.surface)
         });
-
-        Ok(())
     }
 }
