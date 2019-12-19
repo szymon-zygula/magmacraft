@@ -83,6 +83,16 @@ impl Renderer {
             .swapchain(Rc::clone(&swapchain))
             .build()?;
 
+        let command_pool = vulkan::command_pool::CommandPool::builder()
+            .physical_device(Rc::clone(&physical_device))
+            .logical_device(Rc::clone(&logical_device))
+            .queue_family(QueueFamily::Graphics)
+            .often_rerecorded(true)
+            .build()?;
+
+        let command_buffers =
+            command_pool.allocate_command_buffers(swapchain.image_count());
+
         Ok(Renderer {
             vulkan_state
         })

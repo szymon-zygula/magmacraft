@@ -45,7 +45,11 @@ custom_error!{pub VulkanError
     ImageViewCreateError {result: vk::Result} =
         "failed to create image view: {result}",
     FramebuffersCreateError {result: vk::Result} =
-        "failed to create framebuffers: {result}"
+        "failed to create framebuffers: {result}",
+    CommandPoolCreateError {result: vk::Result} =
+        "failed to create command pool: {result}",
+    CommandBufferAllocateError {result: vk::Result} =
+        "failed to allocate command buffer: {result}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;
@@ -61,3 +65,5 @@ pub mod shader;
 pub mod render_pass;
 pub mod pipeline;
 pub mod framebuffers;
+pub mod command_pool;
+pub mod command_buffer;
