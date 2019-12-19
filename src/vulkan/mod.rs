@@ -43,7 +43,9 @@ custom_error!{pub VulkanError
     PipelineLayoutCreateError {result: vk::Result} =
         "failed to create pipeline layout: {result}",
     ImageViewCreateError {result: vk::Result} =
-        "failed to create image view: {result}"
+        "failed to create image view: {result}",
+    FramebuffersCreateError {result: vk::Result} =
+        "failed to create framebuffers: {result}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;
@@ -58,3 +60,4 @@ pub mod swapchain;
 pub mod shader;
 pub mod render_pass;
 pub mod pipeline;
+pub mod framebuffers;

@@ -64,7 +64,7 @@ impl Renderer {
             .build()?);
 
         let vertex_shader = Rc::new(vulkan::shader::VertexShader::from_file(
-                Rc::clone(&logical_device), std::path::Path::new("shaders/triangle.frag.spv"))?);
+                Rc::clone(&logical_device), std::path::Path::new("shaders/triangle.vert.spv"))?);
         let fragment_shader = Rc::new(vulkan::shader::FragmentShader::from_file(
                 Rc::clone(&logical_device), std::path::Path::new("shaders/triangle.frag.spv"))?);
 
@@ -75,6 +75,12 @@ impl Renderer {
             .swapchain(Rc::clone(&swapchain))
             .render_pass(Rc::clone(&render_pass))
             .subpass(0)
+            .build()?;
+
+        let framebuffers = vulkan::framebuffers::Framebuffers::builder()
+            .logical_device(Rc::clone(&logical_device))
+            .render_pass(Rc::clone(&render_pass))
+            .swapchain(Rc::clone(&swapchain))
             .build()?;
 
         Ok(Renderer {
