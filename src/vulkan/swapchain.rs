@@ -53,6 +53,10 @@ impl Swapchain {
     pub fn image_views(&self) -> &Vec<vk::ImageView> {
         &self.image_views
     }
+
+    pub fn image_count(&self) -> usize {
+        self.image_views.len()
+    }
 }
 
 impl Drop for Swapchain {
