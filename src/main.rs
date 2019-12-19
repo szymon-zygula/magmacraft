@@ -20,12 +20,9 @@ fn main() -> Result<(), renderer::RendererError> {
         .expect("failed to create game window")));
 
     let renderer = Renderer::new(Rc::clone(&window));
-    match renderer {
-        Ok(render) => (),
-        Err(err) => {
-            eprintln!("{}", err);
-            return Err(err);
-        },
+    if let Err(err) = renderer {
+        eprintln!("{}", err);
+        return Err(err);
     }
 
     let mut window = window.borrow_mut();
