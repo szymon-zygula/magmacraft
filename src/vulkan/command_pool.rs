@@ -19,7 +19,8 @@ use crate::{
 
 pub struct CommandPool {
     vk_command_pool: vk::CommandPool,
-    logical_device: Rc<LogicalDevice>
+    logical_device: Rc<LogicalDevice>,
+    submit_buffers_once: bool
 }
 
 impl CommandPool {
@@ -43,8 +44,10 @@ impl CommandPool {
             self.logical_device.allocate_command_buffers(&allocate_info)
         }.map_err(|result| VulkanError::CommandBufferAllocateError {result})?;
 
-        Ok(command_buffers.into_iter().map(
-                |vk_command_buffer| CommandBuffer { vk_command_buffer }).collect())
+        Ok(command_buffers.into_iter().map(|vk_command_buffer| {
+            CommandBuffer::from_handle(
+                vk_command_buffer, Rc::clone(&self.logical_device), self.submit_buffers_once)
+        }).collect())
     }
 }
 
@@ -60,7 +63,7 @@ impl Drop for CommandPool {
 pub struct CommandPoolBuilder {
     physical_device: BuilderRequirement<Rc<PhysicalDevice>>,
     logical_device: BuilderRequirement<Rc<LogicalDevice>>,
-    often_rerecorded: Option<bool>,
+    submit_buffers_once: Option<bool>,
     queue_family: BuilderRequirement<QueueFamily>,
 
     create_flags: BuilderInternal<vk::CommandPoolCreateFlags>,
@@ -85,8 +88,8 @@ impl CommandPoolBuilder {
         self
     }
 
-    pub fn often_rerecorded(mut self, often_rerecorded: bool) -> Self {
-        self.often_rerecorded = Some(often_rerecorded);
+    pub fn submit_buffers_once(mut self, submit_buffers_once: bool) -> Self {
+        self.submit_buffers_once = Some(submit_buffers_once);
         self
     }
 
@@ -100,7 +103,7 @@ impl CommandPoolBuilder {
 
     fn init_create_flags(&mut self) {
         let mut flags = vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER;
-        if self.often_rerecorded.unwrap_or(false) {
+        if self.submit_buffers_once.unwrap_or(false) {
             flags |= vk::CommandPoolCreateFlags::TRANSIENT;
         }
 
@@ -126,7 +129,8 @@ impl CommandPoolBuilder {
     fn create_command_pool(&mut self) {
         let command_pool = CommandPool {
             vk_command_pool: self.vk_command_pool.take(),
-            logical_device: self.logical_device.take()
+            logical_device: self.logical_device.take(),
+            submit_buffers_once: self.submit_buffers_once.unwrap_or(false)
         };
 
         self.command_pool.set(command_pool);

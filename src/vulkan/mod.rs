@@ -49,7 +49,9 @@ custom_error!{pub VulkanError
     CommandPoolCreateError {result: vk::Result} =
         "failed to create command pool: {result}",
     CommandBufferAllocateError {result: vk::Result} =
-        "failed to allocate command buffer: {result}"
+        "failed to allocate command buffer: {result}",
+    CommandBufferRecordError {result: vk::Result} =
+        "failed to record command buffer: {result}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;

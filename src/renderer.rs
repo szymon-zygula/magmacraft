@@ -87,11 +87,20 @@ impl Renderer {
             .physical_device(Rc::clone(&physical_device))
             .logical_device(Rc::clone(&logical_device))
             .queue_family(QueueFamily::Graphics)
-            .often_rerecorded(true)
+            .submit_buffers_once(true)
             .build()?;
 
         let command_buffers =
-            command_pool.allocate_command_buffers(swapchain.image_count());
+            command_pool.allocate_command_buffers(swapchain.image_count())?;
+
+        for (i, command_buffer) in command_buffers.iter().enumerate() {
+            command_buffer.record()?
+                .begin_render_pass(&render_pass, &framebuffers, i)
+                .bind_pipeline(&pipeline)
+                .draw(3)
+                .end_render_pass()
+                .end_recording()?;
+        }
 
         Ok(Renderer {
             vulkan_state
