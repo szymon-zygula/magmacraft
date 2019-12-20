@@ -17,8 +17,7 @@ use crate::{
 pub struct Framebuffers {
     vk_framebuffers: Vec<vk::Framebuffer>,
     logical_device: Rc<LogicalDevice>,
-    // lifelime extenders
-    _swapchain: Rc<Swapchain>
+    swapchain: Rc<Swapchain>
 }
 
 impl Framebuffers {
@@ -26,6 +25,14 @@ impl Framebuffers {
         FramebuffersBuilder {
             ..Default::default()
         }
+    }
+
+    pub fn handle(&self, index: usize) -> vk::Framebuffer {
+        self.vk_framebuffers[index]
+    }
+
+    pub fn image_extent(&self) -> vk::Extent2D {
+        self.swapchain.extent()
     }
 }
 
@@ -114,7 +121,7 @@ impl FramebuffersBuilder {
         let framebuffers = Framebuffers {
             vk_framebuffers: self.vk_framebuffers.take(),
             logical_device: Rc::clone(&self.logical_device),
-            _swapchain: Rc::clone(&self.swapchain),
+            swapchain: Rc::clone(&self.swapchain),
         };
 
         self.framebuffers.set(framebuffers);
