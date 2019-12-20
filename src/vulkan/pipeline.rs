@@ -32,6 +32,10 @@ impl Pipeline {
             ..Default::default()
         }
     }
+
+    pub fn handle(&self) -> vk::Pipeline {
+        self.vk_pipeline
+    }
 }
 
 impl Drop for Pipeline {
