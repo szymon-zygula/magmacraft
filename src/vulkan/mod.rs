@@ -51,7 +51,19 @@ custom_error!{pub VulkanError
     CommandBufferAllocateError {result: vk::Result} =
         "failed to allocate command buffer: {result}",
     CommandBufferRecordError {result: vk::Result} =
-        "failed to record command buffer: {result}"
+        "failed to record command buffer: {result}",
+    SemaphoreCreateError {result: vk::Result} =
+        "failed to create semaphore: {result}",
+    FenceCreateError {result: vk::Result} =
+        "failed to create fence: {result}",
+    FenceGetStatusError {result: vk::Result} =
+        "failed to get fence status: {result}",
+    FenceTimeoutTooLargeError =
+        "fence was ordered to wait with a timeout exceeding max size of u64",
+    FenceWaitError {result: vk::Result} =
+        "failed to wait for fence: {result}",
+    FenceResetError {result: vk::Result} =
+        "failed to reset fence: {result}"
 }
 
 type VulkanResult<T> = Result<T, VulkanError>;
@@ -69,3 +81,4 @@ pub mod pipeline;
 pub mod framebuffers;
 pub mod command_pool;
 pub mod command_buffer;
+pub mod synchronization;
