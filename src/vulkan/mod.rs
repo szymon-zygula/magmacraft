@@ -28,6 +28,8 @@ custom_error!{pub VulkanError
         "failed to find a GPU fulfilling all criteria",
     LogicalDeviceCreateError {result: vk::Result} =
         "failed to create vulkan device: {result}",
+    LogicalDeviceGetDeviceQueueError =
+        "logical device was asked about a queue it was not created with",
     SwapchainCreateError {result: vk::Result} =
         "failed to create vulkan swapchain: {result}",
     SwapchainGetImagesError {result: vk::Result} =

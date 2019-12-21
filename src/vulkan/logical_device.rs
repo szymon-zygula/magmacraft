@@ -1,6 +1,9 @@
 use std::{
     rc::Rc,
-    collections::HashSet,
+    collections::{
+        HashSet,
+        HashMap
+    },
     iter::FromIterator
 };
 use ash::{
@@ -29,6 +32,7 @@ use crate::{
 pub struct LogicalDevice {
     vk_logical_device: ash::Device,
     swapchain_loader: Rc<ash::extensions::khr::Swapchain>,
+    device_queues: HashMap<QueueFamily, vk::Queue>,
     // lifetime extenders
     _physical_device: Rc<PhysicalDevice>
 }
@@ -46,6 +50,13 @@ impl LogicalDevice {
 
     pub fn get_swapchain_loader(&self) -> Rc<ash::extensions::khr::Swapchain> {
         Rc::clone(&self.swapchain_loader)
+    }
+
+    pub fn device_queue(&self, queue_family: QueueFamily) -> VulkanResult<vk::Queue> {
+        let device_queue = *self.device_queues.get(&queue_family)
+            .ok_or(VulkanError::LogicalDeviceGetDeviceQueueError)?;
+
+        Ok(device_queue)
     }
 }
 
@@ -77,6 +88,7 @@ pub struct LogicalDeviceBuilder {
     logical_device_create_info: BuilderInternal<vk::DeviceCreateInfo>,
     vk_logical_device: BuilderInternal<ash::Device>,
     swapchain_loader: BuilderInternal<ash::extensions::khr::Swapchain>,
+    device_queues: BuilderInternal<HashMap<QueueFamily, vk::Queue>>,
 
     logical_device: BuilderProduct<LogicalDevice>
 }
@@ -113,6 +125,7 @@ impl LogicalDeviceBuilder {
         self.init_logical_device_create_info();
         self.init_vk_logical_device()?;
         self.init_swapchain_loader();
+        self.init_device_queues()?;
 
         Ok(())
     }
@@ -192,10 +205,28 @@ impl LogicalDeviceBuilder {
         self.swapchain_loader.set(swapchain_loader);
     }
 
+    fn init_device_queues(&mut self) -> VulkanResult<()>{
+        let mut device_queues = HashMap::new();
+        for queue_family in self.queue_families.as_slice() {
+            let queue_family_index =
+                self.physical_device.get_queue_family_index(*queue_family)?;
+
+            let device_queue = unsafe {
+                self.vk_logical_device.get_device_queue(queue_family_index, 0)
+            };
+
+            device_queues.insert(*queue_family, device_queue);
+        }
+
+        self.device_queues.set(device_queues);
+        Ok(())
+    }
+
     fn create_logical_device(&mut self) {
         self.logical_device.set(LogicalDevice {
             vk_logical_device: self.vk_logical_device.take(),
             swapchain_loader: Rc::new(self.swapchain_loader.take()),
+            device_queues: self.device_queues.take(),
             _physical_device: Rc::clone(&self.physical_device)
         });
     }
