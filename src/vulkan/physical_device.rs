@@ -140,8 +140,8 @@ impl PhysicalDeviceSelector {
         self
     }
 
-    pub fn queue_families(mut self, families: &Vec<QueueFamily>) -> Self {
-        let families = HashSet::from_iter(families.clone().into_iter());
+    pub fn queue_families(mut self, families: &[QueueFamily]) -> Self {
+        let families = HashSet::from_iter(families.to_owned().into_iter());
         self.required_queue_families.set(families);
         self
     }
