@@ -3,7 +3,7 @@ macro_rules! create_c_string_collection_type {
         #[derive(Default)]
         pub struct $name {
             // Pointers in `pointers` point to memory owned by `strings`.
-            // `CString`s owned by `strings` are never mutated, so `pointers` are always valid
+            // `CString`s owned by `strings` are never reallocated, so `pointers` are always valid
             strings: Vec<std::ffi::CString>,
             pointers: Vec<*const std::os::raw::c_char>
         }
@@ -89,3 +89,15 @@ macro_rules! create_c_string_collection_type {
 }
 
 create_c_string_collection_type!(CStringCollection);
+
+macro_rules! c_string_collection {
+    ($collection:ident: [$($item:expr),+]) => {
+        {
+            let mut collection = $collection::new();
+            $(
+                collection.push($item);
+            )*
+            collection
+        }
+    }
+}
