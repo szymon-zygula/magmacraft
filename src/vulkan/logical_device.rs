@@ -106,8 +106,14 @@ impl LogicalDeviceBuilder {
         self
     }
 
-    pub fn queue_families(mut self, queue_families: &Vec<QueueFamily>) -> Self {
-        self.queue_families.set(queue_families.clone());
+    pub fn queue_families(mut self, queue_families: &[QueueFamily]) -> Self {
+        let mut queue_families_vec = Vec::with_capacity(queue_families.len());
+        unsafe {
+            queue_families_vec.set_len(queue_families.len());
+        }
+
+        queue_families_vec.copy_from_slice(queue_families);
+        self.queue_families.set(queue_families_vec);
         self
     }
 
