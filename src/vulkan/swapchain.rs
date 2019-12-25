@@ -38,6 +38,10 @@ impl Swapchain {
         }
     }
 
+    pub fn handle(&self) -> vk::SwapchainKHR {
+        self.vk_swapchain
+    }
+
     pub fn image_format(&self) -> vk::Format {
         self.surface_format.format
     }

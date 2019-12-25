@@ -12,7 +12,7 @@ use crate::vulkan::{
     logical_device::LogicalDevice
 };
 
-struct Semaphore {
+pub struct Semaphore {
     vk_semaphore: vk::Semaphore,
     logical_device: Rc<LogicalDevice>
 }
@@ -44,14 +44,16 @@ impl Drop for Semaphore {
     }
 }
 
-struct Fence {
+pub struct Fence {
     vk_fence: vk::Fence,
     logical_device: Rc<LogicalDevice>
 }
 
 impl Fence {
-    pub fn new(logical_device: Rc<LogicalDevice>) -> VulkanResult<Self> {
-        let create_info = vk::FenceCreateInfo::builder();
+    pub fn new(logical_device: Rc<LogicalDevice>, status: FenceStatus) -> VulkanResult<Self> {
+        let flags = Self::create_flags(status);
+        let create_info = vk::FenceCreateInfo::builder()
+            .flags(flags);
 
         let vk_fence = unsafe {
             logical_device.create_fence(&create_info, None)
@@ -61,6 +63,15 @@ impl Fence {
             vk_fence,
             logical_device
         })
+    }
+
+    fn create_flags(status: FenceStatus) -> vk::FenceCreateFlags {
+        if status == FenceStatus::Ready {
+            vk::FenceCreateFlags::SIGNALED
+        }
+        else {
+            vk::FenceCreateFlags::empty()
+        }
     }
 
     pub fn handle(&self) -> vk::Fence {
@@ -109,7 +120,8 @@ impl Drop for Fence {
     }
 }
 
-enum FenceStatus {
+#[derive(PartialEq)]
+pub enum FenceStatus {
     Ready,
     NotReady
 }
