@@ -30,6 +30,8 @@ custom_error!{pub VulkanError
         "failed to create vulkan device: {result}",
     LogicalDeviceGetDeviceQueueError =
         "logical device was asked about a queue it was not created with",
+    LogicalDeviceWaitIdleError {result: vk::Result} =
+        "failed to wait for logical device to become idle: {result}",
     SwapchainCreateError {result: vk::Result} =
         "failed to create vulkan swapchain: {result}",
     SwapchainGetImagesError {result: vk::Result} =
@@ -68,7 +70,7 @@ custom_error!{pub VulkanError
         "failed to reset fence: {result}"
 }
 
-type VulkanResult<T> = Result<T, VulkanError>;
+pub type VulkanResult<T> = Result<T, VulkanError>;
 
 pub mod state;
 pub mod instance;

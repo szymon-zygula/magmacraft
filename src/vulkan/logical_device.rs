@@ -70,6 +70,14 @@ impl std::ops::Deref for LogicalDevice {
 
 impl Drop for LogicalDevice {
     fn drop(&mut self) {
+        let wait_result = unsafe {
+            self.device_wait_idle()
+        };
+
+        wait_result
+            .map_err(|result| VulkanError::LogicalDeviceWaitIdleError {result})
+            .unwrap();
+
         unsafe {
             self.destroy_device(None);
         }
@@ -211,20 +219,31 @@ impl LogicalDeviceBuilder {
         self.swapchain_loader.set(swapchain_loader);
     }
 
-    fn init_device_queues(&mut self) -> VulkanResult<()>{
+    fn init_device_queues(&mut self) -> VulkanResult<()> {
         let mut device_queues = HashMap::new();
         for queue_family in self.queue_families.as_slice() {
-            let queue_family_index =
-                self.physical_device.get_queue_family_index(*queue_family)?;
-
-            let device_queue = unsafe {
-                self.vk_logical_device.get_device_queue(queue_family_index, 0)
-            };
-
-            device_queues.insert(*queue_family, device_queue);
+            self.insert_device_queue_into_hashmap(*queue_family, &mut device_queues)?;
         }
 
         self.device_queues.set(device_queues);
+
+        Ok(())
+    }
+
+    fn insert_device_queue_into_hashmap(
+        &self,
+        queue_family: QueueFamily,
+        device_queues: &mut HashMap<QueueFamily, vk::Queue>
+    ) -> VulkanResult<()> {
+        let queue_family_index =
+            self.physical_device.get_queue_family_index(queue_family)?;
+
+        let device_queue = unsafe {
+            self.vk_logical_device.get_device_queue(queue_family_index, 0)
+        };
+
+        device_queues.insert(queue_family, device_queue);
+
         Ok(())
     }
 

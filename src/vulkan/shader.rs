@@ -176,3 +176,20 @@ impl Drop for Shader {
 pub trait ShaderStageBuilder {
     fn shader_stage_create_info_builder(&self) -> vk::PipelineShaderStageCreateInfoBuilder;
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShaderStage {
+    Geometry,
+    Vertex,
+    Fragment
+}
+
+impl Into<vk::ShaderStageFlags> for ShaderStage {
+    fn into(self) -> vk::ShaderStageFlags {
+        match self {
+            ShaderStage::Geometry => vk::ShaderStageFlags::GEOMETRY,
+            ShaderStage::Vertex => vk::ShaderStageFlags::VERTEX,
+            ShaderStage::Fragment => vk::ShaderStageFlags::FRAGMENT,
+        }
+    }
+}

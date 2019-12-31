@@ -1,4 +1,7 @@
-use std::rc::Rc;
+use std::{
+    collections::HashMap,
+    rc::Rc
+};
 use ash::{
     version::DeviceV1_0,
     vk
@@ -14,7 +17,8 @@ use crate::{
             GeometryShader,
             VertexShader,
             FragmentShader,
-            ShaderStageBuilder
+            ShaderStageBuilder,
+            ShaderStage
         },
         render_pass::RenderPass
     }
@@ -27,7 +31,7 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn builder() -> PipelineBuilder {
+    pub fn builder<'a>() -> PipelineBuilder<'a> {
         PipelineBuilder {
             ..Default::default()
         }
@@ -35,6 +39,10 @@ impl Pipeline {
 
     pub fn handle(&self) -> vk::Pipeline {
         self.vk_pipeline
+    }
+
+    pub fn layout(&self) -> vk::PipelineLayout {
+        self.pipeline_layout
     }
 }
 
@@ -48,14 +56,15 @@ impl Drop for Pipeline {
 }
 
 #[derive(Default)]
-pub struct PipelineBuilder {
+pub struct PipelineBuilder<'a> {
     logical_device: BuilderRequirement<Rc<LogicalDevice>>,
-    geometry_shader: Option<Rc<GeometryShader>>,
-    vertex_shader: Option<Rc<VertexShader>>,
-    fragment_shader: Option<Rc<FragmentShader>>,
+    geometry_shader: Option<&'a GeometryShader>,
+    vertex_shader: Option<&'a VertexShader>,
+    fragment_shader: Option<&'a FragmentShader>,
     swapchain: BuilderRequirement<Rc<Swapchain>>,
     render_pass: BuilderRequirement<Rc<RenderPass>>,
     subpass: BuilderRequirement<u32>,
+    push_constants_sizes: Option<HashMap<ShaderStage, usize>>,
 
     vertex_binding_descriptions: BuilderInternal<Vec<vk::VertexInputBindingDescription>>,
     vertex_attribute_descriptions: BuilderInternal<Vec<vk::VertexInputAttributeDescription>>,
@@ -81,7 +90,7 @@ pub struct PipelineBuilder {
     pipeline: BuilderProduct<Pipeline>
 }
 
-impl PipelineBuilder {
+impl<'a> PipelineBuilder<'a> {
     const MAX_SHADER_STAGES: usize = 3;
 
     pub fn logical_device(mut self, logical_device: Rc<LogicalDevice>) -> Self {
@@ -89,17 +98,17 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn geometry_shader(mut self, geometry_shader: Rc<GeometryShader>) -> Self {
+    pub fn geometry_shader(mut self, geometry_shader: &'a GeometryShader) -> Self {
         self.geometry_shader = Some(geometry_shader);
         self
     }
 
-    pub fn vertex_shader(mut self, vertex_shader: Rc<VertexShader>) -> Self {
+    pub fn vertex_shader(mut self, vertex_shader: &'a VertexShader) -> Self {
         self.vertex_shader = Some(vertex_shader);
         self
     }
 
-    pub fn fragment_shader(mut self, fragment_shader: Rc<FragmentShader>) -> Self {
+    pub fn fragment_shader(mut self, fragment_shader: &'a FragmentShader) -> Self {
         self.fragment_shader = Some(fragment_shader);
         self
     }
@@ -116,6 +125,21 @@ impl PipelineBuilder {
 
     pub fn subpass(mut self, subpass: u32) -> Self {
         self.subpass.set(subpass);
+        self
+    }
+
+    pub fn push_constants_size(mut self, shader: ShaderStage, size: usize) -> Self {
+        match self.push_constants_sizes.as_mut() {
+            Some(sizes) => {
+                sizes.insert(shader, size);
+            },
+            None => {
+                let mut push_constants_sizes = HashMap::with_capacity(1);
+                push_constants_sizes.insert(shader, size);
+                self.push_constants_sizes = Some(push_constants_sizes);
+            }
+        }
+
         self
     }
 
@@ -240,7 +264,9 @@ impl PipelineBuilder {
     }
 
     fn init_pipeline_layout(&mut self) -> VulkanResult<()> {
-        let pipeline_layout_create_info_builder = vk::PipelineLayoutCreateInfo::builder();
+        let push_constant_ranges = Self::push_constant_ranges(&self.push_constants_sizes);
+        let pipeline_layout_create_info_builder = vk::PipelineLayoutCreateInfo::builder()
+            .push_constant_ranges(&push_constant_ranges);
 
         let pipeline_layout = unsafe {
             self.logical_device.create_pipeline_layout(&pipeline_layout_create_info_builder, None)
@@ -250,11 +276,28 @@ impl PipelineBuilder {
         Ok(())
     }
 
+    fn push_constant_ranges(push_constants_sizes: &Option<HashMap<ShaderStage, usize>>) -> Vec<vk::PushConstantRange> {
+        match push_constants_sizes {
+            Some(sizes) => {
+                let mut sizes = sizes.clone();
+                sizes.retain(|_, size| *size > 0);
+                sizes.iter().map(|(shader, size)| {
+                    vk::PushConstantRange::builder()
+                        .stage_flags((*shader).into())
+                        .offset(0)
+                        .size(*size as u32)
+                        .build()
+                }).collect()
+            },
+            None => Vec::with_capacity(0)
+        }
+    }
+
     fn init_vk_pipeline(&mut self) -> VulkanResult<()> {
         let mut stages_create_infos = Vec::with_capacity(Self::MAX_SHADER_STAGES);
-        Self::push_shader_stage_if_some(&mut stages_create_infos, &self.geometry_shader.as_ref());
-        Self::push_shader_stage_if_some(&mut stages_create_infos, &self.vertex_shader.as_ref());
-        Self::push_shader_stage_if_some(&mut stages_create_infos, &self.fragment_shader.as_ref());
+        Self::push_shader_stage_if_some(&mut stages_create_infos, &self.geometry_shader);
+        Self::push_shader_stage_if_some(&mut stages_create_infos, &self.vertex_shader);
+        Self::push_shader_stage_if_some(&mut stages_create_infos, &self.fragment_shader);
 
         let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(stages_create_infos.as_slice())
@@ -282,11 +325,12 @@ impl PipelineBuilder {
 
     fn push_shader_stage_if_some<T: ShaderStageBuilder>(
         stages: &mut Vec<vk::PipelineShaderStageCreateInfo>,
-        shader: &Option<&Rc<T>>
+        shader: &Option<&T>
     ) {
         if let Some(shader) = shader {
-            let shader_stage_create_info =
-                shader.shader_stage_create_info_builder().build();
+            let shader_stage_create_info = shader
+                .shader_stage_create_info_builder()
+                .build();
 
             stages.push(shader_stage_create_info);
         }

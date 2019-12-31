@@ -9,14 +9,16 @@ use crate::vulkan::{
     logical_device::LogicalDevice,
     render_pass::RenderPass,
     framebuffers::Framebuffers,
-    pipeline::Pipeline
+    pipeline::Pipeline,
+    shader::ShaderStage
 };
 
 
 pub struct CommandBuffer {
     vk_command_buffer: vk::CommandBuffer,
     logical_device: Rc<LogicalDevice>,
-    submit_once: bool
+    submit_once: bool,
+    pipelines_in_use: Vec<Rc<Pipeline>>
 }
 
 impl CommandBuffer {
@@ -28,7 +30,8 @@ impl CommandBuffer {
         Self {
             vk_command_buffer,
             logical_device,
-            submit_once
+            submit_once,
+            pipelines_in_use: Vec::new()
         }
     }
 
@@ -36,19 +39,20 @@ impl CommandBuffer {
         self.vk_command_buffer
     }
 
-    pub fn record(&self) -> VulkanResult<CommandBufferRecorder> {
-        CommandBufferRecorder::new(&self, self.submit_once)
+    pub fn record(&mut self) -> VulkanResult<CommandBufferRecorder> {
+        self.pipelines_in_use.clear();
+        CommandBufferRecorder::new(self)
     }
 }
 
 pub struct CommandBufferRecorder<'a> {
-    command_buffer: &'a CommandBuffer,
+    command_buffer: &'a mut CommandBuffer,
     recording: bool
 }
 
 impl<'a> CommandBufferRecorder<'a> {
-    fn new(command_buffer: &'a CommandBuffer, submit_once: bool) -> VulkanResult<Self> {
-        let flags = Self::begin_info_flags(submit_once);
+    fn new(command_buffer: &'a mut CommandBuffer) -> VulkanResult<Self> {
+        let flags = Self::begin_info_flags(command_buffer.submit_once);
         let begin_info = vk::CommandBufferBeginInfo::builder()
             .flags(flags);
 
@@ -128,7 +132,7 @@ impl<'a> CommandBufferRecorder<'a> {
         self
     }
 
-    pub fn bind_pipeline(self, pipeline: &Pipeline) -> Self {
+    pub fn bind_pipeline(self, pipeline: Rc<Pipeline>) -> Self {
         unsafe {
             self.command_buffer.logical_device
                 .cmd_bind_pipeline(
@@ -137,6 +141,8 @@ impl<'a> CommandBufferRecorder<'a> {
                     pipeline.handle());
         }
 
+        self.command_buffer.pipelines_in_use.push(pipeline);
+
         self
     }
 
@@ -144,7 +150,26 @@ impl<'a> CommandBufferRecorder<'a> {
         unsafe {
             self.command_buffer.logical_device
                 .cmd_draw(self.command_buffer.handle(), vertex_count, 1, 0, 0);
-        };
+        }
+
+        self
+    }
+
+    pub fn push_constant(
+        self,
+        pipeline: &Pipeline,
+        shader_stage: ShaderStage,
+        constants: &dyn PushConstants
+    ) -> Self {
+        unsafe {
+            self.command_buffer.logical_device
+                .cmd_push_constants(
+                    self.command_buffer.handle(),
+                    pipeline.layout(),
+                    shader_stage.into(),
+                    0,
+                    constants.data());
+        }
 
         self
     }
@@ -167,3 +192,17 @@ impl Drop for CommandBufferRecorder<'_> {
         }
     }
 }
+
+pub trait PushConstants {
+    fn data(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(self as *const Self as *const u8, self.size())
+        }
+    }
+
+    fn size(&self) -> usize {
+        std::mem::size_of_val(self)
+    }
+}
+
+impl PushConstants for () {}

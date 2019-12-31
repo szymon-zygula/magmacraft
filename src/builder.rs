@@ -7,6 +7,10 @@ macro_rules! declare_builder_field {
             const ERROR_MESSAGE: &'static str =
                 "field not set or taken before use";
 
+            pub fn none() -> Self {
+                Self(None)
+            }
+
             pub fn set(&mut self, owned: T) {
                 self.0 = Some(owned);
             }
@@ -60,6 +64,10 @@ declare_builder_field!(BuilderRequirement);
 pub struct BuilderProduct<T> (Option<T>);
 
 impl<T> BuilderProduct<T> {
+    pub fn none() -> Self {
+        Self(None)
+    }
+
     pub fn set(&mut self, owned: T) {
         self.0 = Some(owned)
     }
