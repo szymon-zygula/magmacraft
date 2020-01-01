@@ -252,7 +252,7 @@ impl LogicalDeviceBuilder {
             vk_logical_device: self.vk_logical_device.take(),
             swapchain_loader: Rc::new(self.swapchain_loader.take()),
             device_queues: self.device_queues.take(),
-            _physical_device: Rc::clone(&self.physical_device)
+            _physical_device: self.physical_device.take()
         });
     }
 }
