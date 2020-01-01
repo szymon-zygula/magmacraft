@@ -120,8 +120,8 @@ impl FramebuffersBuilder {
     fn create_framebuffers(&mut self) {
         let framebuffers = Framebuffers {
             vk_framebuffers: self.vk_framebuffers.take(),
-            logical_device: Rc::clone(&self.logical_device),
-            swapchain: Rc::clone(&self.swapchain),
+            logical_device: self.logical_device.take(),
+            swapchain: self.swapchain.take(),
         };
 
         self.framebuffers.set(framebuffers);

@@ -338,9 +338,9 @@ impl SwapchainBuilder {
             extent: self.image_extent.take(),
             images: self.images.take(),
             image_views: self.image_views.take(),
-            swapchain_loader: Rc::clone(&self.logical_device.get_swapchain_loader()),
-            logical_device: Rc::clone(&self.logical_device),
-            _surface: Rc::clone(&self.surface)
+            swapchain_loader: self.logical_device.get_swapchain_loader(),
+            logical_device: self.logical_device.take(),
+            _surface: self.surface.take()
         });
     }
 }

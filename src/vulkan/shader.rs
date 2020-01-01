@@ -93,7 +93,7 @@ impl Shader {
         let vk_shader_module = Self::create_shader_module(&logical_device, &buffer)?;
 
         Ok(Self {
-            logical_device: Rc::clone(&logical_device),
+            logical_device,
             vk_shader_module,
             shader_stage
         })

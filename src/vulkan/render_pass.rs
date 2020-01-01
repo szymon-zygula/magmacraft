@@ -149,7 +149,7 @@ impl RenderPassBuilder {
     fn create_render_pass(&mut self) {
         self.render_pass.set(RenderPass {
             vk_render_pass: self.vk_render_pass.take(),
-            logical_device: Rc::clone(&self.logical_device)
+            logical_device: self.logical_device.take()
         });
     }
 }

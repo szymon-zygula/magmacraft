@@ -340,7 +340,7 @@ impl<'a> PipelineBuilder<'a> {
         let pipeline = Pipeline {
             vk_pipeline: self.vk_pipeline.take(),
             pipeline_layout: self.pipeline_layout.take(),
-            logical_device: Rc::clone(&self.logical_device)
+            logical_device: self.logical_device.take()
         };
 
         self.pipeline.set(pipeline);
