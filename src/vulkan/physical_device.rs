@@ -325,7 +325,7 @@ impl PhysicalDeviceSelector {
     }
 
     fn create_physical_device(&mut self) {
-        let requested_extension =
+        let requested_extensions =
             self.required_extensions.take()
             .unwrap_or(PhysicalDeviceExtensions::new());
 
