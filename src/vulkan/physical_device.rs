@@ -125,7 +125,7 @@ pub struct PhysicalDeviceSelector {
     vulkan_state: BuilderRequirement<Rc<VulkanState>>,
     required_queue_families: BuilderRequirement<HashSet<QueueFamily>>,
     compatible_surface: BuilderRequirement<Rc<vulkan::surface::Surface>>,
-    required_extensions: PhysicalDeviceExtensions,
+    required_extensions: Option<PhysicalDeviceExtensions>,
 
     devices: BuilderInternal<Vec<vk::PhysicalDevice>>,
     selected_device: BuilderInternal<vk::PhysicalDevice>,
@@ -152,7 +152,7 @@ impl PhysicalDeviceSelector {
     }
 
     pub fn device_extensions(mut self, extensions: PhysicalDeviceExtensions) -> Self {
-        self.required_extensions = extensions;
+        self.required_extensions = Some(extensions);
         self
     }
 
@@ -231,13 +231,18 @@ impl PhysicalDeviceSelector {
         }
     }
 
-    fn are_required_extensions_supported(&self, device: vk::PhysicalDevice) -> VulkanResult<bool> {
+    fn are_required_extensions_supported(
+        &self,
+        device: vk::PhysicalDevice
+    ) -> VulkanResult<bool> {
         let device_extension_properties = self.get_device_extensions_properties(device)?;
 
-        for required_extension in self.required_extensions.get_strings() {
-            if !Self::is_extension_supported(&device_extension_properties, &required_extension) {
-                return Ok(false);
-            }
+        if let Some(required_extensions) = &self.required_extensions {
+            let are_extensions_supported = Self::are_extensions_supported(
+                &device_extension_properties,
+                &required_extensions);
+
+            return Ok(are_extensions_supported);
         }
 
         Ok(true)
@@ -256,25 +261,43 @@ impl PhysicalDeviceSelector {
         Ok(extension_properties)
     }
 
+    fn are_extensions_supported(
+        device_extension_properties: &Vec<vk::ExtensionProperties>,
+        required_extensions: &PhysicalDeviceExtensions
+    ) -> bool {
+        for required_extension in required_extensions.get_strings() {
+            if !Self::is_extension_supported(&device_extension_properties, &required_extension) {
+                return false;
+            }
+        }
+
+        true
+    }
+
     fn is_extension_supported(
         device_extension_properties: &Vec<vk::ExtensionProperties>,
         required_extension_name: &std::ffi::CStr
     ) -> bool {
-        let mut found = false;
         for extension_properties in device_extension_properties {
-            let device_extension_name = unsafe {
-                let extension_name_pointer =
-                    &extension_properties.extension_name as *const std::os::raw::c_char;
-                std::ffi::CStr::from_ptr(extension_name_pointer)
-            };
+            let device_extension_name = Self::get_device_extension_name(extension_properties);
 
             if device_extension_name == required_extension_name {
-                found = true;
-                break;
+                return true;
             }
         }
 
-        found
+        false
+    }
+
+    fn get_device_extension_name(
+        extension_properties: &vk::ExtensionProperties
+    ) -> &std::ffi::CStr {
+        let extension_name_pointer =
+            &extension_properties.extension_name as *const std::os::raw::c_char;
+
+        unsafe {
+            std::ffi::CStr::from_ptr(extension_name_pointer)
+        }
     }
 
     fn is_device_discrete(&self, device: vk::PhysicalDevice) -> bool {
@@ -302,11 +325,15 @@ impl PhysicalDeviceSelector {
     }
 
     fn create_physical_device(&mut self) {
+        let requested_extension =
+            self.required_extensions.take()
+            .unwrap_or(PhysicalDeviceExtensions::new());
+
         self.physical_device.set(PhysicalDevice {
-            vulkan_state: Rc::clone(&self.vulkan_state),
+            vulkan_state: self.vulkan_state.take(),
             vk_physical_device: self.selected_device.take(),
             queue_family_indices: self.queue_family_indices.take(),
-            requested_extensions: self.required_extensions.clone()
+            requested_extensions
         });
     }
 }
