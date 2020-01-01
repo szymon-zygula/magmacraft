@@ -7,35 +7,51 @@ use ash::{
 use glfw;
 use crate::{
     window::Window,
-    vulkan
+    vulkan::state::VulkanState
 };
 
 pub struct Surface {
     vk_surface: vk::SurfaceKHR,
-    vulkan_state: Rc<vulkan::state::VulkanState>,
+    vulkan_state: Rc<VulkanState>,
     window: Rc<RefCell<Window>>
 }
 
 impl Surface {
-    pub fn new(window: Rc<RefCell<Window>>, vulkan_state: Rc<vulkan::state::VulkanState>) -> Self {
-        let raw_window_handle = window.borrow().get_raw_handle();
+    pub fn new(window: Rc<RefCell<Window>>, vulkan_state: Rc<VulkanState>) -> Self {
+        let vk_surface = Self::create_window_surface(&window.borrow(), &vulkan_state);
+        Surface {
+            vk_surface,
+            vulkan_state,
+            window
+        }
+    }
+
+    fn create_window_surface(window: &Window, vulkan_state: &VulkanState) -> vk::SurfaceKHR {
+        let raw_window_handle = window.get_raw_handle();
         let raw_instance_handle = vulkan_state.get_raw_instance_handle();
-        let mut raw_vk_surface: u64 = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let raw_vk_surface =
+            Self::create_raw_window_surface(raw_window_handle, raw_instance_handle);
+
+        vk::SurfaceKHR::from_raw(raw_vk_surface)
+    }
+
+    fn create_raw_window_surface(
+        raw_window_handle: *mut glfw::ffi::GLFWwindow,
+        raw_instance_handle: u64
+    ) -> u64 {
+        let mut raw_vk_surface: u64 = unsafe {
+            std::mem::MaybeUninit::uninit().assume_init()
+        };
 
         unsafe {
             glfw::ffi::glfwCreateWindowSurface(
                 raw_instance_handle as usize,
                 raw_window_handle,
                 std::ptr::null(),
-                &mut raw_vk_surface as *mut u64
-            );
+                &mut raw_vk_surface as *mut u64);
         }
 
-        Surface {
-            vk_surface: vk::SurfaceKHR::from_raw(raw_vk_surface),
-            vulkan_state: Rc::clone(&vulkan_state),
-            window: Rc::clone(&window)
-        }
+        raw_vk_surface
     }
 
     pub fn get_handle(&self) -> vk::SurfaceKHR {
