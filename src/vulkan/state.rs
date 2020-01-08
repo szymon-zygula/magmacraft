@@ -37,6 +37,10 @@ impl VulkanState {
         Rc::clone(&self.instance)
     }
 
+    pub fn instance_handle(&self) -> &ash::Instance {
+        self.instance.handle()
+    }
+
     pub fn raw_instance_handle(&self) -> u64 {
         self.instance.raw_handle()
     }
