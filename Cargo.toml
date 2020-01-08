@@ -9,3 +9,4 @@ custom_error = "1.7.1"
 glfw = { version = "0.34.0", features = ["vulkan", "image"] }
 ash = "0.29.0"
 vk-mem = "0.2.0"
+nalgebra-glm = "0.5.0"
