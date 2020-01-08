@@ -149,7 +149,7 @@ impl SwapchainBuilder {
     }
 
     fn init_surface_properties(&mut self) -> VulkanResult<()> {
-        let surface_properties = self.physical_device.get_surface_properties(&self.surface)?;
+        let surface_properties = self.physical_device.surface_properties(&self.surface)?;
         self.surface_properties.set(surface_properties);
 
         Ok(())
@@ -167,7 +167,7 @@ impl SwapchainBuilder {
 
         // TODO: support custom resolutions
         let image_extent = if Self::is_extent_undefined(&current_extent) {
-            self.surface.get_framebuffer_extent()
+            self.surface.framebuffer_extent()
         }
         else {
             current_extent
@@ -210,8 +210,8 @@ impl SwapchainBuilder {
 
     fn init_image_sharing_info(&mut self) -> VulkanResult<()> {
         let multiple_queue_family_usage = self.physical_device.is_transfer_queue_family_dedicated();
-        let graphics_index = self.physical_device.get_queue_family_index(QueueFamily::Graphics)?;
-        let transfer_index = self.physical_device.get_queue_family_index(QueueFamily::Transfer)?;
+        let graphics_index = self.physical_device.queue_family_index(QueueFamily::Graphics)?;
+        let transfer_index = self.physical_device.queue_family_index(QueueFamily::Transfer)?;
 
         let (image_sharing_mode, concurrent_queue_families) = 
             if multiple_queue_family_usage {
@@ -234,7 +234,7 @@ impl SwapchainBuilder {
         // so it cannot be taken.
 
         let swapchain_create_info_builder = vk::SwapchainCreateInfoKHR::builder()
-            .surface(self.surface.get_handle())
+            .surface(self.surface.handle())
             .min_image_count(*self.optimal_image_count)
             .image_format(surface_format.format)
             .image_color_space(surface_format.color_space)
@@ -254,7 +254,7 @@ impl SwapchainBuilder {
     }
 
     fn init_vk_swapchain(&mut self) -> VulkanResult<()> {
-        let swapchain_loader = self.logical_device.get_swapchain_loader();
+        let swapchain_loader = self.logical_device.swapchain_loader();
         let vk_swapchain = unsafe {
             swapchain_loader.create_swapchain(
                 &self.swapchain_create_info,
@@ -268,7 +268,7 @@ impl SwapchainBuilder {
 
     fn init_images(&mut self) -> VulkanResult<()> {
         let images = unsafe {
-            self.logical_device.get_swapchain_loader()
+            self.logical_device.swapchain_loader()
                 .get_swapchain_images(*self.vk_swapchain)
         }.map_err(|result| VulkanError::SwapchainGetImagesError {result})?;
 
@@ -338,7 +338,7 @@ impl SwapchainBuilder {
             extent: self.image_extent.take(),
             images: self.images.take(),
             image_views: self.image_views.take(),
-            swapchain_loader: self.logical_device.get_swapchain_loader(),
+            swapchain_loader: self.logical_device.swapchain_loader(),
             logical_device: self.logical_device.take(),
             _surface: self.surface.take()
         });

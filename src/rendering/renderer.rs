@@ -104,7 +104,7 @@ impl Renderer {
 
     fn create_vulkan_state(window: &Rc<RefCell<Window>>) -> RenderingResult<Rc<VulkanState>> {
         let window = window.borrow();
-        let glfw_extensions = window.get_required_vulkan_extensions();
+        let glfw_extensions = window.required_vulkan_extensions();
         let vulkan_state = VulkanState::builder()
             .debug_mode(debugging::is_in_debug_mode())
             .instance_extensions(glfw_extensions)
@@ -236,7 +236,7 @@ impl Renderer {
     }
 
     fn acquire_next_image(&self) -> RenderingResult<usize> {
-        let swapchain_loader = self.logical_device.get_swapchain_loader();
+        let swapchain_loader = self.logical_device.swapchain_loader();
         let image_index = unsafe {
             swapchain_loader.acquire_next_image(
                 self.swapchain.handle(),
@@ -316,7 +316,7 @@ impl Renderer {
             .image_indices(&image_indices)
             .build();
 
-        let swapchain_loader = self.logical_device.get_swapchain_loader();
+        let swapchain_loader = self.logical_device.swapchain_loader();
 
         unsafe {
             swapchain_loader.queue_present(presentation_queue, &present_info)

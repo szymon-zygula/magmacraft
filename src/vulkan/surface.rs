@@ -27,8 +27,8 @@ impl Surface {
     }
 
     fn create_window_surface(window: &Window, vulkan_state: &VulkanState) -> vk::SurfaceKHR {
-        let raw_window_handle = window.get_raw_handle();
-        let raw_instance_handle = vulkan_state.get_raw_instance_handle();
+        let raw_window_handle = window.raw_handle();
+        let raw_instance_handle = vulkan_state.raw_instance_handle();
         let raw_vk_surface =
             Self::create_raw_window_surface(raw_window_handle, raw_instance_handle);
 
@@ -54,12 +54,12 @@ impl Surface {
         raw_vk_surface
     }
 
-    pub fn get_handle(&self) -> vk::SurfaceKHR {
+    pub fn handle(&self) -> vk::SurfaceKHR {
         self.vk_surface
     }
 
-    pub fn get_framebuffer_extent(&self) -> vk::Extent2D {
-        let (width, height) = self.window.borrow().get_framebuffer_size();
+    pub fn framebuffer_extent(&self) -> vk::Extent2D {
+        let (width, height) = self.window.borrow().framebuffer_size();
 
         *vk::Extent2D::builder()
             .width(width)
@@ -69,11 +69,12 @@ impl Surface {
     pub unsafe fn is_supported_by_vk_device(
         &self, physical_device: vk::PhysicalDevice, queue_family_index: u32
     ) -> bool {
-        self.vulkan_state.get_surface_loader().get_physical_device_surface_support(
-            physical_device,
-            queue_family_index,
-            self.vk_surface
-        )
+        self.vulkan_state
+            .surface_loader()
+            .get_physical_device_surface_support(
+                physical_device,
+                queue_family_index,
+                self.vk_surface)
     }
 }
 
@@ -87,7 +88,9 @@ impl std::ops::Deref for Surface {
 impl Drop for Surface {
     fn drop(&mut self) {
         unsafe {
-            self.vulkan_state.get_surface_loader().destroy_surface(self.vk_surface, None);
+            self.vulkan_state
+                .surface_loader()
+                .destroy_surface(self.vk_surface, None);
         }
     }
 }

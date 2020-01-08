@@ -44,11 +44,11 @@ impl LogicalDevice {
         }
     }
 
-    pub fn get_handle(&self) -> vk::Device {
+    pub fn handle(&self) -> vk::Device {
         self.vk_logical_device.handle()
     }
 
-    pub fn get_swapchain_loader(&self) -> Rc<ash::extensions::khr::Swapchain> {
+    pub fn swapchain_loader(&self) -> Rc<ash::extensions::khr::Swapchain> {
         Rc::clone(&self.swapchain_loader)
     }
 
@@ -162,7 +162,7 @@ impl LogicalDeviceBuilder {
     fn insert_queue_family_index_into_hashset(
         &self, queue_family: QueueFamily, hashset: &mut HashSet<QueueFamilyIndex>
     ) -> VulkanResult<()> {
-        let index = self.physical_device.get_queue_family_index(queue_family)?;
+        let index = self.physical_device.queue_family_index(queue_family)?;
         hashset.insert(index);
 
         Ok(())
@@ -183,23 +183,23 @@ impl LogicalDeviceBuilder {
     }
 
     fn init_device_extensions(&mut self) {
-        let device_extensions = self.physical_device.get_requested_extensions();
+        let device_extensions = self.physical_device.requested_extensions();
         self.device_extensions.set(device_extensions.clone());
     }
 
     fn init_logical_device_create_info(&mut self) {
         let builder = vk::DeviceCreateInfo::builder()
             .queue_create_infos(self.queue_create_infos.as_slice())
-            .enabled_extension_names(self.device_extensions.get_pointers());
+            .enabled_extension_names(self.device_extensions.pointers());
 
         self.logical_device_create_info.set(*builder);
     }
 
     fn init_vk_logical_device(&mut self) -> VulkanResult<()> {
-        let vk_instance = self.vulkan_state.get_instance();
+        let vk_instance = self.vulkan_state.instance();
         let vk_logical_device = unsafe {
             vk_instance.create_device(
-                self.physical_device.get_handle(),
+                self.physical_device.handle(),
                 &self.logical_device_create_info,
                 None
             ).map_err(|result| VulkanError::LogicalDeviceCreateError {result})?
@@ -211,10 +211,10 @@ impl LogicalDeviceBuilder {
     }
 
     fn init_swapchain_loader(&mut self) {
-        let vk_instance = self.vulkan_state.get_instance();
+        let vk_instance = self.vulkan_state.instance();
         let swapchain_loader =
             ash::extensions::khr::Swapchain::new(
-                vk_instance.get_handle(), self.vk_logical_device.as_ref());
+                vk_instance.handle(), self.vk_logical_device.as_ref());
 
         self.swapchain_loader.set(swapchain_loader);
     }
@@ -236,7 +236,7 @@ impl LogicalDeviceBuilder {
         device_queues: &mut HashMap<QueueFamily, vk::Queue>
     ) -> VulkanResult<()> {
         let queue_family_index =
-            self.physical_device.get_queue_family_index(queue_family)?;
+            self.physical_device.queue_family_index(queue_family)?;
 
         let device_queue = unsafe {
             self.vk_logical_device.get_device_queue(queue_family_index, 0)

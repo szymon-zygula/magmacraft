@@ -19,7 +19,7 @@ pub struct DebugMessenger {
 
 impl DebugMessenger {
     pub fn new(debug_utils_loader: Rc<ash::extensions::ext::DebugUtils>, instance: Rc<vulkan::instance::Instance>) -> VulkanResult<Self> {
-        let debug_messenger_create_info = Self::get_create_info();
+        let debug_messenger_create_info = Self::create_info();
 
         let vk_debug_messenger = unsafe { debug_utils_loader
             .create_debug_utils_messenger(&debug_messenger_create_info, None)
@@ -33,7 +33,7 @@ impl DebugMessenger {
         })
     }
 
-    pub fn get_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
+    pub fn create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
         let message_severity =
             vk::DebugUtilsMessageSeverityFlagsEXT::WARNING |
             vk::DebugUtilsMessageSeverityFlagsEXT::ERROR;

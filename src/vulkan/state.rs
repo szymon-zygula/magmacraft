@@ -25,23 +25,23 @@ impl VulkanState {
         }
     }
 
-    pub fn get_entry(&self) -> &ash::Entry {
+    pub fn entry(&self) -> &ash::Entry {
         &self.entry
     }
 
-    pub fn get_instance(&self) -> Rc<vulkan::instance::Instance> {
+    pub fn instance(&self) -> Rc<vulkan::instance::Instance> {
         Rc::clone(&self.instance)
     }
 
-    pub fn get_raw_instance_handle(&self) -> u64 {
-        self.instance.get_raw_handle()
+    pub fn raw_instance_handle(&self) -> u64 {
+        self.instance.raw_handle()
     }
 
-    pub fn get_debug_utils_loader(&self) -> Rc<ash::extensions::ext::DebugUtils> {
+    pub fn debug_utils_loader(&self) -> Rc<ash::extensions::ext::DebugUtils> {
         Rc::clone(&self.debug_utils_loader)
     }
 
-    pub fn get_surface_loader(&self) -> Rc<ash::extensions::khr::Surface> {
+    pub fn surface_loader(&self) -> Rc<ash::extensions::khr::Surface> {
         Rc::clone(&self.surface_loader)
     }
 }
@@ -114,7 +114,7 @@ impl VulkanStateBuilder {
     }
 
     fn init_extension_loaders(&mut self) {
-        let instance_handle = self.instance.get_handle();
+        let instance_handle = self.instance.handle();
         // Builder -> &Rc -> &ash::Entry
         let entry = self.entry.as_ref().as_ref();
 

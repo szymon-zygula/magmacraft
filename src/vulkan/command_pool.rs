@@ -112,7 +112,7 @@ impl CommandPoolBuilder {
 
     fn init_vk_command_pool(&mut self) -> VulkanResult<()> {
         let queue_family_index =
-            self.physical_device.get_queue_family_index(*self.queue_family)?;
+            self.physical_device.queue_family_index(*self.queue_family)?;
 
         let command_pool_create_info = vk::CommandPoolCreateInfo::builder()
             .queue_family_index(queue_family_index)

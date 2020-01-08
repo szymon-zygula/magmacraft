@@ -2,7 +2,10 @@ use std::rc::Rc;
 use ash::{
     self,
     vk_make_version,
-    vk::{self, Handle},
+    vk::{
+        self,
+        Handle
+    },
     version::{
         InstanceV1_0,
         EntryV1_0
@@ -30,12 +33,12 @@ impl Instance {
         }
     }
 
-    pub fn get_handle(&self) -> &ash::Instance {
+    pub fn handle(&self) -> &ash::Instance {
         &self.vk_instance
     }
 
-    pub fn get_raw_handle(&self) -> u64 {
-        self.handle().as_raw()
+    pub fn raw_handle(&self) -> u64 {
+        self.vk_instance.handle().as_raw()
     }
 }
 
@@ -130,9 +133,9 @@ impl InstanceBuilder {
     }
 
     fn check_if_validation_layers_are_available(&self) -> VulkanResult<()> {
-        let properties = self.get_validation_layer_properties()?;
+        let properties = self.validation_layer_properties()?;
 
-        for layer in self.validation_layers.get_strings() {
+        for layer in self.validation_layers.strings() {
             if !Self::is_validation_layer_in_properties(&layer, &properties) {
                 return Err(VulkanError::ValidationLayersNotAvailable);
             }
@@ -141,7 +144,7 @@ impl InstanceBuilder {
         Ok(())
     }
 
-    fn get_validation_layer_properties(&self) -> VulkanResult<Vec<vk::LayerProperties>> {
+    fn validation_layer_properties(&self) -> VulkanResult<Vec<vk::LayerProperties>> {
         let properties = self.entry
             .enumerate_instance_layer_properties()
             .map_err(|result| VulkanError::ValidationLayersError {result})?;
@@ -165,7 +168,7 @@ impl InstanceBuilder {
 
     fn init_debug_messenger_create_info(&mut self) {
         self.debug_messenger_create_info.set(
-            vulkan::debug_utils::DebugMessenger::get_create_info()
+            vulkan::debug_utils::DebugMessenger::create_info()
         );
     }
 
@@ -186,8 +189,8 @@ impl InstanceBuilder {
     fn init_instance_create_info(&mut self) -> VulkanResult<()> {
         let mut instance_create_info = vk::InstanceCreateInfo::builder()
             .application_info(&self.app_info)
-            .enabled_extension_names(self.extensions.get_pointers())
-            .enabled_layer_names(self.validation_layers.get_pointers())
+            .enabled_extension_names(self.extensions.pointers())
+            .enabled_layer_names(self.validation_layers.pointers())
             .flags(vk::InstanceCreateFlags::empty());
 
         if *self.debug_mode {

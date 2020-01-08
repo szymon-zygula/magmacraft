@@ -60,11 +60,11 @@ macro_rules! create_c_string_collection_type {
                 self.pointers.push(pointer);
             }
 
-            pub fn get_pointers(&self) -> &[*const std::os::raw::c_char] {
+            pub fn pointers(&self) -> &[*const std::os::raw::c_char] {
                 self.pointers.as_slice()
             }
 
-            pub fn get_strings(&self) -> &Vec<std::ffi::CString> {
+            pub fn strings(&self) -> &Vec<std::ffi::CString> {
                 &self.strings
             }
 

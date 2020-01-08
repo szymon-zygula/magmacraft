@@ -80,7 +80,8 @@ impl Fence {
 
     pub fn status(&self) -> VulkanResult<FenceStatus> {
         let status = unsafe {
-            self.logical_device.get_fence_status(self.vk_fence)
+            self.logical_device
+                .get_fence_status(self.vk_fence)
         };
 
         match status {

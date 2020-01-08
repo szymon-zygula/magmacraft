@@ -48,16 +48,19 @@ impl Window {
         }
     }
 
-    pub fn get_required_vulkan_extensions(&self) -> vulkan::instance::InstanceExtensions {
-        let a = self.glfw_instance.get_required_instance_extensions().unwrap_or(Vec::new());
+    pub fn required_vulkan_extensions(&self) -> vulkan::instance::InstanceExtensions {
+        let a = self.glfw_instance
+            .get_required_instance_extensions()
+            .unwrap_or(Vec::new());
+
         vulkan::instance::InstanceExtensions::from_vec(a)
     }
 
-    pub fn get_raw_handle(&self) -> *mut glfw::ffi::GLFWwindow {
+    pub fn raw_handle(&self) -> *mut glfw::ffi::GLFWwindow {
         self.glfw_window.window_ptr()
     }
 
-    pub fn get_framebuffer_size(&self) -> (u32, u32) {
+    pub fn framebuffer_size(&self) -> (u32, u32) {
         let (width, height) = self.glfw_window.get_framebuffer_size();
         (width as u32, height as u32)
     }
@@ -87,13 +90,13 @@ impl WindowBuilder {
     }
 
     pub fn build(mut self) -> WindowResult<Window> {
-        self.get_ready_for_creation()?;
+        self.ready_for_creation()?;
         self.create_window();
 
         Ok(self.window.unwrap())
     }
 
-    fn get_ready_for_creation(&mut self) -> WindowResult<()> {
+    fn ready_for_creation(&mut self) -> WindowResult<()> {
         self.init_glfw_instance()?;
         self.set_window_hints();
         self.init_glfw_window_and_receiver()?;
