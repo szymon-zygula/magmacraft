@@ -103,7 +103,7 @@ pub struct RenderStateBuilder<'a, G, V, F> where
 
     geometry_constants: PhantomData<G>,
     vertex_constants: PhantomData<V>,
-    fragment_constants: PhantomData<F>,
+    fragment_constants: PhantomData<F>
 }
 
 impl<'a, G, V, F> RenderStateBuilder<'a, G, V, F> where
