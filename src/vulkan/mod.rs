@@ -46,6 +46,8 @@ custom_error!{pub VulkanError
         "failed to create pipeline: {result}",
     PipelineLayoutCreateError {result: vk::Result} =
         "failed to create pipeline layout: {result}",
+    PipelineCreateVertexAttributeDescriptionError =
+        "failed to create vertex attribute description for a pipeline",
     ImageViewCreateError {result: vk::Result} =
         "failed to create image view: {result}",
     FramebuffersCreateError {result: vk::Result} =

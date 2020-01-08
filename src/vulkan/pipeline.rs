@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    convert::TryFrom,
     rc::Rc
 };
 use ash::{
@@ -65,6 +66,8 @@ pub struct PipelineBuilder<'a> {
     render_pass: BuilderRequirement<Rc<RenderPass>>,
     subpass: BuilderRequirement<u32>,
     push_constants_sizes: Option<HashMap<ShaderStage, usize>>,
+    vertex_binding_description_strides: Vec<usize>,
+    vertex_attribute_description_infos: Vec<VertexAttributeDescriptionInfo>,
 
     vertex_binding_descriptions: BuilderInternal<Vec<vk::VertexInputBindingDescription>>,
     vertex_attribute_descriptions: BuilderInternal<Vec<vk::VertexInputAttributeDescription>>,
@@ -128,6 +131,26 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
+    pub fn vertex_binding_stride(mut self, vertex_binding_description_stride: usize) -> Self {
+        self.vertex_binding_description_strides.push(vertex_binding_description_stride);
+        self
+    }
+
+    pub fn vertex_attribute_description(
+        mut self,
+        format: VertexAttributeFormat,
+        offset: usize
+    ) -> Self {
+        let description_info = VertexAttributeDescriptionInfo {
+            binding: self.vertex_binding_description_strides.len(),
+            format,
+            offset
+        };
+
+        self.vertex_attribute_description_infos.push(description_info);
+        self
+    }
+
     pub fn push_constants_size(mut self, shader: ShaderStage, size: usize) -> Self {
         match self.push_constants_sizes.as_mut() {
             Some(sizes) => {
@@ -151,7 +174,7 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     fn get_ready_for_creation(&mut self) -> VulkanResult<()> {
-        self.init_vertex_input_state();
+        self.init_vertex_input_state()?;
         self.init_input_assembly_state();
         self.init_viewport_state();
         self.init_rasterization_state();
@@ -163,15 +186,63 @@ impl<'a> PipelineBuilder<'a> {
         Ok(())
     }
 
-    fn init_vertex_input_state(&mut self) {
-        self.vertex_binding_descriptions.set(Vec::new());
-        self.vertex_attribute_descriptions.set(Vec::new());
+    fn init_vertex_input_state(&mut self) -> VulkanResult<()> {
+        self.init_vertex_binding_descriptions();
+        self.init_vertex_attribute_descriptions()?;
         let vertex_input_state_create_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_binding_descriptions(self.vertex_binding_descriptions.as_slice())
             .vertex_attribute_descriptions(self.vertex_attribute_descriptions.as_slice())
             .build();
 
         self.vertex_input_state_create_info.set(vertex_input_state_create_info);
+        Ok(())
+    }
+
+    fn init_vertex_binding_descriptions(&mut self) {
+        let binding_descriptions_count = self.vertex_binding_description_strides.len();
+        let mut binding_descriptions = Vec::with_capacity(binding_descriptions_count);
+        for (i, size) in self.vertex_binding_description_strides.iter().enumerate() {
+            let binding_description = Self::create_vertex_binding_description(i, *size);
+            binding_descriptions.push(binding_description);
+        }
+
+        self.vertex_binding_descriptions.set(binding_descriptions);
+    }
+
+    fn create_vertex_binding_description(
+        binding_index: usize,
+        stride: usize
+    ) -> vk::VertexInputBindingDescription {
+        vk::VertexInputBindingDescription::builder()
+            .binding(binding_index as u32)
+            .stride(stride as u32)
+            .input_rate(vk::VertexInputRate::VERTEX)
+            .build()
+    }
+
+    fn init_vertex_attribute_descriptions(&mut self) -> VulkanResult<()> {
+        let attribute_descriptions_count = self.vertex_attribute_description_infos.len();
+        let mut attribute_descriptions = Vec::with_capacity(attribute_descriptions_count);
+        for (i, info) in self.vertex_attribute_description_infos.iter().enumerate() {
+            let vertex_attribute_description =
+                Self::create_vertex_attribute_description(i, info)?;
+            attribute_descriptions.push(vertex_attribute_description);
+        }
+
+        self.vertex_attribute_descriptions.set(attribute_descriptions);
+        Ok(())
+    }
+
+    fn create_vertex_attribute_description(
+        location: usize,
+        info: &VertexAttributeDescriptionInfo
+    ) -> VulkanResult<vk::VertexInputAttributeDescription> {
+        Ok(vk::VertexInputAttributeDescription::builder()
+            .binding(info.binding as u32)
+            .location(location as u32)
+            .format(vk::Format::try_from(info.format)?)
+            .offset(info.offset as u32)
+            .build())
     }
 
     fn init_input_assembly_state(&mut self) {
@@ -344,5 +415,44 @@ impl<'a> PipelineBuilder<'a> {
         };
 
         self.pipeline.set(pipeline);
+    }
+}
+
+struct VertexAttributeDescriptionInfo {
+    binding: usize,
+    format: VertexAttributeFormat,
+    offset: usize
+}
+
+#[derive(Clone, Copy)]
+pub enum VertexAttributeFormat {
+    I32(u8),
+    U32(u8),
+    F32(u8),
+    F64(u8)
+}
+
+impl TryFrom<VertexAttributeFormat> for vk::Format {
+    type Error = VulkanError;
+    fn try_from(value: VertexAttributeFormat) -> Result<vk::Format, Self::Error> {
+        match value {
+            VertexAttributeFormat::I32(1) => Ok(vk::Format::R32_SINT),
+            VertexAttributeFormat::I32(2) => Ok(vk::Format::R32G32_SINT),
+            VertexAttributeFormat::I32(3) => Ok(vk::Format::R32G32B32_SINT),
+            VertexAttributeFormat::I32(4) => Ok(vk::Format::R32G32B32A32_SINT),
+            VertexAttributeFormat::U32(1) => Ok(vk::Format::R32_UINT),
+            VertexAttributeFormat::U32(2) => Ok(vk::Format::R32G32_UINT),
+            VertexAttributeFormat::U32(3) => Ok(vk::Format::R32G32B32_UINT),
+            VertexAttributeFormat::U32(4) => Ok(vk::Format::R32G32B32A32_UINT),
+            VertexAttributeFormat::F32(1) => Ok(vk::Format::R32_SFLOAT),
+            VertexAttributeFormat::F32(2) => Ok(vk::Format::R32G32_SFLOAT),
+            VertexAttributeFormat::F32(3) => Ok(vk::Format::R32G32B32_SFLOAT),
+            VertexAttributeFormat::F32(4) => Ok(vk::Format::R32G32B32A32_SFLOAT),
+            VertexAttributeFormat::F64(1) => Ok(vk::Format::R32_SFLOAT),
+            VertexAttributeFormat::F64(2) => Ok(vk::Format::R32G32_SFLOAT),
+            VertexAttributeFormat::F64(3) => Ok(vk::Format::R32G32B32_SFLOAT),
+            VertexAttributeFormat::F64(4) => Ok(vk::Format::R32G32B32A32_SFLOAT),
+            _ => Err(VulkanError::PipelineCreateVertexAttributeDescriptionError)
+        }
     }
 }
