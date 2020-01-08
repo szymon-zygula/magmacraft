@@ -48,8 +48,8 @@ impl LogicalDevice {
         }
     }
 
-    pub fn handle(&self) -> vk::Device {
-        self.vk_logical_device.handle()
+    pub fn handle(&self) -> &ash::Device {
+        &self.vk_logical_device
     }
 
     pub fn swapchain_loader(&self) -> Rc<ash::extensions::khr::Swapchain> {
