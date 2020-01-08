@@ -5,7 +5,11 @@ use glfw::{
 };
 use crate::{
     vulkan,
-    builder::*
+    builder::{
+        BuilderInternal,
+        BuilderRequirement,
+        BuilderProduct
+    }
 };
 
 custom_error!{pub WindowError
