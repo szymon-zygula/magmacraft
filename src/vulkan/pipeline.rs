@@ -255,27 +255,12 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     fn init_viewport_state(&mut self) {
-        let viewport = vk::Viewport::builder()
-            .x(0.0)
-            .y(0.0)
-            .width(self.swapchain.extent().width as f32)
-            .height(self.swapchain.extent().height as f32)
-            .min_depth(0.0)
-            .max_depth(0.0)
-            .build();
+        let swapchain_extent = self.swapchain.extent();
 
+        let viewport = Self::viewport(swapchain_extent);
         self.viewport.set(viewport);
 
-        let scissors_offset = vk::Offset2D::builder()
-            .x(0)
-            .y(0)
-            .build();
-
-        let viewport_scissors = vk::Rect2D::builder()
-            .offset(scissors_offset)
-            .extent(self.swapchain.extent())
-            .build();
-
+        let viewport_scissors = Self::viewport_scissors(swapchain_extent);
         self.viewport_scissors.set(viewport_scissors);
 
         let viewport_state_create_info = vk::PipelineViewportStateCreateInfo::builder()
@@ -284,6 +269,29 @@ impl<'a> PipelineBuilder<'a> {
             .build();
 
         self.viewport_state_create_info.set(viewport_state_create_info);
+    }
+
+    fn viewport(extent: vk::Extent2D) -> vk::Viewport {
+        vk::Viewport::builder()
+            .x(0.0)
+            .y(0.0)
+            .width(extent.width as f32)
+            .height(extent.height as f32)
+            .min_depth(0.0)
+            .max_depth(0.0)
+            .build()
+    }
+
+    fn viewport_scissors(extent: vk::Extent2D) -> vk::Rect2D {
+        let scissors_offset = vk::Offset2D::builder()
+            .x(0)
+            .y(0)
+            .build();
+
+        vk::Rect2D::builder()
+            .offset(scissors_offset)
+            .extent(extent)
+            .build()
     }
 
     fn init_rasterization_state(&mut self) {
