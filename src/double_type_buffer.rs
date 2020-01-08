@@ -1,6 +1,9 @@
 use std::{
     alloc,
-    mem::{align_of, size_of},
+    mem::{
+        align_of,
+        size_of
+    },
     slice,
     marker::PhantomData
 };
@@ -18,9 +21,8 @@ impl<T, U> DoubleTypeBuffer<T, U> {
         let alignment_w = align_of::<W>();
         let alignment = std::cmp::max(alignment_v, alignment_w);
 
-        let size_v = Self::size_of_aligned::<V>();
-        let size_w = Self::size_of_aligned::<W>();
-
+        let size_v = size_of::<V>();
+        let size_w = size_of::<W>();
         let size = std::cmp::max(size_v * length_v, size_w * length_w);
 
         unsafe {
@@ -32,19 +34,6 @@ impl<T, U> DoubleTypeBuffer<T, U> {
                 phantom_t: PhantomData,
                 phantom_u: PhantomData
             }
-        }
-    }
-
-    fn size_of_aligned<V>() -> usize {
-        Self::complement_to_multiple(size_of::<V>(), align_of::<V>())
-    }
-
-    fn complement_to_multiple(a: usize, b: usize) -> usize {
-        if a % b == 0  {
-            a
-        }
-        else {
-            a + b - a % b
         }
     }
 
@@ -66,7 +55,7 @@ impl<T, U> DoubleTypeBuffer<T, U> {
 
     fn as_slice<V>(&self) -> &[V] {
         let buffer = self.buffer as *const V;
-        let length = self.layout.size() / Self::size_of_aligned::<V>();
+        let length = self.layout.size() / size_of::<V>();
         unsafe {
             slice::from_raw_parts(buffer, length)
         }
@@ -74,7 +63,7 @@ impl<T, U> DoubleTypeBuffer<T, U> {
 
     fn as_mut_slice<V>(&self) -> &mut [V] {
         let buffer = self.buffer as *mut V;
-        let length = self.layout.size() / Self::size_of_aligned::<V>();
+        let length = self.layout.size() / size_of::<V>();
         unsafe {
             slice::from_raw_parts_mut(buffer, length)
         }
